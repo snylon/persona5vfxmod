@@ -103,7 +103,7 @@ async function compressImageFile(file: File): Promise<string> {
 function JournalGlyph({
   name,
 }: {
-  name: 'book' | 'mic' | 'save' | 'chevron' | 'trash' | 'image' | 'close'
+  name: 'book' | 'mic' | 'save' | 'chevron' | 'chevronLeft' | 'trash' | 'image' | 'close'
 }) {
   const paths = {
     book: (
@@ -120,6 +120,7 @@ function JournalGlyph({
     ),
     save: <path d="m5 12 4 4L19 6" />,
     chevron: <path d="m9 18 6-6-6-6" />,
+    chevronLeft: <path d="m15 18-6-6 6-6" />,
     trash: (
       <>
         <path d="M4 7h16M9 7V4h6v3m3 0-1 14H7L6 7" />
@@ -155,8 +156,13 @@ function JournalGlyph({
 
 export default function Journal() {
   const today = localDateKey()
+  const [todayYear, todayMonth] = today.split('-').map(Number)
   const [pages, setPages] = useState<JournalPage[]>([])
   const [activeDate, setActiveDate] = useState(today)
+  const [calendarMonth, setCalendarMonth] = useState({
+    year: todayYear,
+    month: todayMonth - 1,
+  })
   const [previewDate, setPreviewDate] = useState<string | null>(null)
   const [confirmDeleteDate, setConfirmDeleteDate] = useState<string | null>(null)
   const [ready, setReady] = useState(false)
@@ -261,6 +267,46 @@ export default function Journal() {
         .sort((a, b) => b.date.localeCompare(a.date)),
     [pages],
   )
+
+  const pagesByDate = useMemo(() => {
+    const map = new Map<string, JournalPage>()
+    for (const page of pageHistory) {
+      map.set(page.date, page)
+    }
+    return map
+  }, [pageHistory])
+
+  const calendarDays = useMemo(() => {
+    const { year, month } = calendarMonth
+    const firstWeekday = new Date(year, month, 1).getDay()
+    const totalDays = new Date(year, month + 1, 0).getDate()
+    const cells: Array<{ day: number; dateKey: string } | null> = []
+    for (let i = 0; i < firstWeekday; i++) cells.push(null)
+    for (let day = 1; day <= totalDays; day++) {
+      const dateKey = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+      cells.push({ day, dateKey })
+    }
+    return cells
+  }, [calendarMonth])
+
+  const calendarMonthLabel = useMemo(
+    () =>
+      new Intl.DateTimeFormat('en-US', {
+        month: 'long',
+        year: 'numeric',
+      }).format(new Date(calendarMonth.year, calendarMonth.month, 1)),
+    [calendarMonth],
+  )
+
+  const isViewingCurrentMonth =
+    calendarMonth.year === todayYear && calendarMonth.month === todayMonth - 1
+
+  function shiftCalendarMonth(delta: number) {
+    setCalendarMonth(({ year, month }) => {
+      const next = new Date(year, month + delta, 1)
+      return { year: next.getFullYear(), month: next.getMonth() }
+    })
+  }
 
   function updatePage(patch: Partial<JournalPage>, markSaved = false) {
     setStorageError('')
@@ -635,110 +681,126 @@ export default function Journal() {
               <div className="mb-3 flex items-end justify-between">
                 <div>
                   <h3 className="font-['Manrope'] text-[15px] font-semibold text-[#53604f]">
-                    Your pages
+                    Your journal calendar
                   </h3>
+                  <p className="mt-0.5 text-[10px] text-[#8d9884]">
+                    Tap a highlighted date to read what you wrote.
+                  </p>
                 </div>
                 <span className="text-[10px] font-semibold text-[#819271]">
-                  {pageHistory.length} {pageHistory.length === 1 ? 'page' : 'pages'}
+                  {pageHistory.length} {pageHistory.length === 1 ? 'entry' : 'entries'}
                 </span>
               </div>
 
-              {pageHistory.length === 0 ? (
-                <div className="rounded-[16px] border border-dashed border-[#dfe5d7] px-5 py-8 text-center">
-                  <p className="text-[11px] leading-relaxed text-[#96a08e]">
-                    Today’s page will appear here when you begin writing or recording.
-                  </p>
+              <div className="rounded-[20px] border border-[#e5ebdd] bg-[#fafbf8] p-3.5">
+                <div className="mb-3 flex items-center justify-between gap-2">
+                  <button
+                    type="button"
+                    onClick={() => shiftCalendarMonth(-1)}
+                    aria-label="Previous month"
+                    className="grid h-8 w-8 place-items-center rounded-full border border-[#e2e8da] bg-white text-[#5d7152] hover:bg-[#eef4e6]"
+                  >
+                    <JournalGlyph name="chevronLeft" />
+                  </button>
+                  <div className="flex items-center gap-2">
+                    <strong className="font-['Manrope'] text-[13px] font-bold text-[#3f523d]">
+                      {calendarMonthLabel}
+                    </strong>
+                    {!isViewingCurrentMonth && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setCalendarMonth({ year: todayYear, month: todayMonth - 1 })
+                        }
+                        className="rounded-full bg-[#e8efdc] px-2 py-0.5 text-[9px] font-bold text-[#536f41] hover:bg-[#dce8cb]"
+                      >
+                        Today
+                      </button>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => shiftCalendarMonth(1)}
+                    aria-label="Next month"
+                    className="grid h-8 w-8 place-items-center rounded-full border border-[#e2e8da] bg-white text-[#5d7152] hover:bg-[#eef4e6]"
+                  >
+                    <JournalGlyph name="chevron" />
+                  </button>
                 </div>
-              ) : (
-                <div className="space-y-2">
-                  {pageHistory.map((page) => {
-                    const isConfirmingDelete = confirmDeleteDate === page.date
+
+                <div className="mb-1.5 grid grid-cols-7 text-center text-[9px] font-bold uppercase tracking-[0.6px] text-[#95a08d]">
+                  {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((weekday) => (
+                    <span key={weekday} className="py-1">
+                      {weekday}
+                    </span>
+                  ))}
+                </div>
+
+                <div className="grid grid-cols-7 gap-1.5" role="grid" aria-label={calendarMonthLabel}>
+                  {calendarDays.map((cell, index) => {
+                    if (!cell) {
+                      return <div key={`empty-${index}`} aria-hidden="true" className="aspect-square" />
+                    }
+                    const entry = pagesByDate.get(cell.dateKey)
+                    const isTodayCell = cell.dateKey === today
+                    const isActiveCell = cell.dateKey === activeDate
+
+                    if (entry) {
+                      return (
+                        <button
+                          key={cell.dateKey}
+                          type="button"
+                          onClick={() => {
+                            setConfirmDeleteDate(null)
+                            setPreviewDate(cell.dateKey)
+                          }}
+                          title={entry.title || displayDate(cell.dateKey)}
+                          aria-label={`Read journal entry for ${displayDate(cell.dateKey)}: ${entry.title || 'Untitled reflection'}`}
+                          className={`relative flex aspect-square flex-col items-center justify-center rounded-[12px] border text-[12px] font-bold transition ${
+                            isActiveCell
+                              ? 'border-[#8eab76] bg-[#dce9cb] text-[#354d30] shadow-2xs'
+                              : 'border-[#c4d6af] bg-[#eaf2df] text-[#3f5939] hover:bg-[#dfecd0]'
+                          }`}
+                        >
+                          <span>{cell.day}</span>
+                          <span
+                            className="mt-0.5 h-1.5 w-1.5 rounded-full bg-[#62844c]"
+                            aria-hidden="true"
+                          />
+                        </button>
+                      )
+                    }
+
                     return (
                       <div
-                        key={page.date}
-                        className={`rounded-[15px] border p-3 ${activeDate === page.date
-                            ? 'border-[#cbd9bb] bg-[#f0f5e9]'
-                            : 'border-[#e7ebe2] bg-[#fafbf8]'
-                          }`}
+                        key={cell.dateKey}
+                        aria-label={`${displayDate(cell.dateKey)}, no journal entry`}
+                        className={`flex aspect-square items-center justify-center rounded-[12px] border text-[11px] ${
+                          isTodayCell
+                            ? 'border-[#b9cda5] bg-white font-semibold text-[#54694c]'
+                            : 'border-transparent text-[#a3ad9c]'
+                        }`}
                       >
-                        <div className="flex w-full items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setConfirmDeleteDate(null)
-                              setPreviewDate(page.date)
-                            }}
-                            className="flex min-w-0 flex-1 items-center gap-3 text-left"
-                          >
-                            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-[12px] bg-white text-[10px] font-bold text-[#7a8c6c]">
-                              {new Date(`${page.date}T12:00:00`).getDate()}
-                            </span>
-                            <span className="min-w-0 flex-1">
-                              <strong className="block truncate text-[11px] font-semibold text-[#596653]">
-                                {page.title || 'Untitled reflection'}
-                              </strong>
-                              <small className="mt-1 block text-[9px] text-[#9ba493]">
-                                {displayDate(page.date, false)}
-                                {page.imageDataUrls?.length
-                                  ? ` · ${page.imageDataUrls.length} ${page.imageDataUrls.length === 1 ? 'image' : 'images'
-                                  }`
-                                  : ''}
-                                {page.audioDataUrl
-                                  ? ` · Voice ${durationLabel(page.audioDuration)}`
-                                  : ''}
-                              </small>
-                            </span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setConfirmDeleteDate(isConfirmingDelete ? null : page.date)
-                            }
-                            className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white text-[#a1676d] shadow-xs hover:bg-[#f9ebec]"
-                            aria-label={`Delete page for ${page.title || displayDate(page.date)}`}
-                          >
-                            <JournalGlyph name="trash" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setConfirmDeleteDate(null)
-                              setPreviewDate(page.date)
-                            }}
-                            className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white text-[#768c65] shadow-xs hover:bg-[#e8efdc]"
-                            aria-label={`View saved contents for ${page.title || displayDate(page.date)}`}
-                          >
-                            <JournalGlyph name="chevron" />
-                          </button>
-                        </div>
-                        {isConfirmingDelete && (
-                          <div className="mt-2.5 flex items-center justify-between gap-2 border-t border-[#e4e9dd] pt-2.5">
-                            <span className="text-[10px] font-medium text-[#8a5d62]">
-                              Delete this page?
-                            </span>
-                            <div className="flex items-center gap-1.5">
-                              <button
-                                type="button"
-                                onClick={() => setConfirmDeleteDate(null)}
-                                className="rounded-[9px] border border-[#dce2d5] bg-white px-2.5 py-1.5 text-[10px] font-semibold text-[#6e7966]"
-                              >
-                                Cancel
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => deletePage(page.date)}
-                                className="rounded-[9px] bg-[#e9c8cb] px-2.5 py-1.5 text-[10px] font-semibold text-[#84454c]"
-                              >
-                                Delete
-                              </button>
-                            </div>
-                          </div>
-                        )}
+                        {cell.day}
                       </div>
                     )
                   })}
                 </div>
-              )}
+
+                <div className="mt-3 flex items-center justify-center gap-4 border-t border-[#e8ede1] pt-2.5 text-[10px] text-[#84907c]">
+                  <span className="inline-flex items-center gap-1.5">
+                    <span className="h-2.5 w-2.5 rounded-full bg-[#62844c]" aria-hidden="true" />
+                    Journal entry
+                  </span>
+                  <span className="inline-flex items-center gap-1.5">
+                    <span
+                      className="h-2.5 w-2.5 rounded-[4px] border border-[#b9cda5] bg-white"
+                      aria-hidden="true"
+                    />
+                    Today
+                  </span>
+                </div>
+              </div>
 
               {activeDate !== today && (
                 <button
