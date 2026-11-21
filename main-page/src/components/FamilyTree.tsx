@@ -17,7 +17,7 @@ type FamilyMember = {
   isCurrent?: boolean
 }
 
-const STORAGE_KEY = 'unforgotten-family-tree-members'
+const STORAGE_KEY = 'releaf-family-tree-members'
 const MAX_AVATAR_DIMENSION = 480
 
 const defaultMembers: FamilyMember[] = [
@@ -207,8 +207,16 @@ type ModalMode =
   | { kind: 'edit'; id: string }
   | null
 
-export default function FamilyTree() {
-  const [members, setMembers] = useState<FamilyMember[]>(defaultMembers)
+export default function FamilyTree({
+  members: membersProp,
+  setMembers: setMembersProp,
+}: {
+  members?: FamilyMember[]
+  setMembers?: React.Dispatch<React.SetStateAction<FamilyMember[]>>
+} = {}) {
+  const [membersLocal, setMembersLocal] = useState<FamilyMember[]>(defaultMembers)
+  const members = membersProp ?? membersLocal
+  const setMembers = setMembersProp ?? setMembersLocal
   const [modal, setModal] = useState<ModalMode>(null)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [formRole, setFormRole] = useState('')

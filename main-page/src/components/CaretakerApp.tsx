@@ -1,6 +1,8 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import FamilyTree from './FamilyTree'
+import type { Reminder, FamilyMember } from '@/app/(frontend)/page'
 
 function Icon({ name, size = 20, ...props }: { name: string; size?: number; className?: string }) {
   const paths: Record<string, React.ReactNode> = {
@@ -12,7 +14,6 @@ function Icon({ name, size = 20, ...props }: { name: string; size?: number; clas
         <rect x="14" y="14" width="7" height="7" rx="2" />
       </>
     ),
-    chart: <path d="M4 4v16h17M8 14l4-5 4 3 5-7" />,
     leaf: (
       <>
         <path d="M20 3C9 2 2 7 5 15s17 5 15-12Z" />
@@ -24,7 +25,6 @@ function Icon({ name, size = 20, ...props }: { name: string; size?: number; clas
     plus: <path d="M12 5v14M5 12h14" />,
     check: <path d="m5 12 4 4L19 6" />,
     close: <path d="m6 6 12 12M6 18 18 6" />,
-    heart: <path d="M20 5c-3-3-7-1-8 1-1-2-5-4-8-1s-1 7 8 14c9-7 11-11 8-14Z" />,
     users: (
       <>
         <circle cx="8" cy="8" r="4" />
@@ -33,21 +33,57 @@ function Icon({ name, size = 20, ...props }: { name: string; size?: number; clas
         <path d="M22 20c0-2.5-1.5-4.5-3-5" />
       </>
     ),
-    activity: <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />,
-    game: (
+    camera: (
       <>
-        <rect x="2" y="6" width="20" height="12" rx="4" />
-        <path d="M6 12h4m-2-2v4m7-1h.01M15 11h.01" />
+        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+        <circle cx="12" cy="13" r="4" />
       </>
     ),
-    fork: (
+    family: (
       <>
-        <path d="M5 3v6a3 3 0 0 0 6 0V3M8 3v19M20 3c-5 3-5 10 0 10m0-10v19" />
+        <circle cx="12" cy="5" r="3" />
+        <circle cx="6" cy="19" r="3" />
+        <circle cx="18" cy="19" r="3" />
+        <path d="M12 8v4M6 16v-4h12v4" />
       </>
     ),
-    message: <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />,
-    clip: (
-      <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+    settings: (
+      <>
+        <path d="m9 3-1 3-3 1-2 4 2 3v4l4 2 3-1 3 1 4-2v-4l2-3-2-4-3-1-1-3Z" />
+        <circle cx="12" cy="12" r="3" />
+      </>
+    ),
+    checklist: (
+      <>
+        <path d="M9 11l3 3L22 4" />
+        <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+      </>
+    ),
+    quiz: (
+      <>
+        <circle cx="12" cy="12" r="9" />
+        <path d="M9 9a3 3 0 0 1 6 0c0 2-3 2-3 5m0 3h.01" />
+      </>
+    ),
+    trash: (
+      <>
+        <polyline points="3 6 5 6 21 6" />
+        <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+        <path d="M10 11v6m4-6v6" />
+        <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+      </>
+    ),
+    edit: (
+      <>
+        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5Z" />
+      </>
+    ),
+    globe: (
+      <>
+        <circle cx="12" cy="12" r="9" />
+        <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+      </>
     ),
   }
   return (
@@ -67,270 +103,482 @@ function Icon({ name, size = 20, ...props }: { name: string; size?: number; clas
   )
 }
 
-const PATIENT = { name: 'Jamie Lewis', initials: 'JL', age: 72, condition: 'Early-stage dementia', since: 'March 2024' }
+const PATIENT = { name: 'Jamie Lewis', initials: 'JL', since: 'March 2024' }
 
-type Alert = { id: number; kind: 'warning' | 'info' | 'good'; text: string; time: string }
-const initialAlerts: Alert[] = [
-  { id: 1, kind: 'warning', text: 'Jamie missed today\u2019s morning water habit.', time: '9:14 AM' },
-  { id: 2, kind: 'info', text: 'Colouring game completed \u2014 100%.', time: '10:32 AM' },
-  { id: 3, kind: 'good', text: 'All three meals logged for yesterday.', time: 'Yesterday' },
+// ── Shared state types ────────────────────────────────────────────────────────
+
+type QuizQuestion = { id: number; text: string }
+
+const initialQuizQuestions: QuizQuestion[] = [
+  { id: 1, text: 'What is your favourite colour?' },
+  { id: 2, text: 'What did you have for breakfast?' },
 ]
 
-type Note = { id: number; text: string; author: string; date: string }
-const initialNotes: Note[] = [
-  { id: 1, text: 'Jamie was in great spirits during our Tuesday visit. Mentioned enjoying the colouring game.', author: 'Dr. Rivera', date: 'Tue' },
-  { id: 2, text: 'Remind Jamie about the afternoon walk \u2014 she tends to skip it on cold days.', author: 'You', date: 'Mon' },
-]
+// Simulated picture-day photos (would come from shared storage in a real app)
+const SAMPLE_PHOTOS: { prompt: string; src: string }[] = []
 
-const moodHistory = [
-  { day: 'Mon', mood: 4 }, { day: 'Tue', mood: 5 }, { day: 'Wed', mood: 3 },
-  { day: 'Thu', mood: 4 }, { day: 'Fri', mood: 4 }, { day: 'Sat', mood: 5 }, { day: 'Sun', mood: 2 },
-]
+// ── Overview (Home) page ──────────────────────────────────────────────────────
 
-const gameActivity = [
-  { name: 'Counting boxes', completions: 5, lastPlayed: 'Today', trend: +2 },
-  { name: 'Colouring game', completions: 3, lastPlayed: 'Today', trend: 0 },
-  { name: 'Find the differences', completions: 2, lastPlayed: 'Yesterday', trend: -1 },
-  { name: 'Picture day', completions: 1, lastPlayed: '3 days ago', trend: +1 },
-]
+function OverviewPage({
+  reminders,
+  setReminders,
+  quizQuestions,
+  setQuizQuestions,
+  todoChecked,
+}: {
+  reminders: Reminder[]
+  setReminders: React.Dispatch<React.SetStateAction<Reminder[]>>
+  quizQuestions: QuizQuestion[]
+  setQuizQuestions: React.Dispatch<React.SetStateAction<QuizQuestion[]>>
+  todoChecked: Record<string, boolean>
+}) {
+  // Reminder form state
+  const [reminderText, setReminderText] = useState('')
+  const [reminderTime, setReminderTime] = useState('')
+  const [reminderDays, setReminderDays] = useState('Daily')
+  const [showReminderForm, setShowReminderForm] = useState(false)
+  // Quiz question form state
+  const [quizText, setQuizText] = useState('')
+  const [showQuizForm, setShowQuizForm] = useState(false)
+  // Editing reminder
+  const [editingReminder, setEditingReminder] = useState<Reminder | null>(null)
 
-const habitRate = [66, 83, 50, 100, 83, 66, 33]
+  function addReminder() {
+    if (!reminderText.trim()) return
+    setReminders((prev) => [
+      ...prev,
+      { id: Date.now(), text: reminderText.trim(), time: reminderTime || 'Anytime', days: reminderDays },
+    ])
+    setReminderText('')
+    setReminderTime('')
+    setReminderDays('Daily')
+    setShowReminderForm(false)
+  }
 
-function MoodDot({ level }: { level: number }) {
-  const colours = ['', '#e8b5b5', '#e8ccb5', '#e8e1b5', '#c8deb5', '#a8d4a8']
-  return <span className="mood-dot" style={{ background: colours[level] ?? colours[3] }} aria-label={`Mood ${level} of 5`} />
-}
+  function saveEditReminder() {
+    if (!editingReminder || !editingReminder.text.trim()) return
+    setReminders((prev) => prev.map((r) => (r.id === editingReminder.id ? editingReminder : r)))
+    setEditingReminder(null)
+  }
 
-function AlertBadge({ kind }: { kind: Alert['kind'] }) {
-  if (kind === 'warning') return <span className="ct-alert-badge ct-alert-warn">!</span>
-  if (kind === 'good') return <span className="ct-alert-badge ct-alert-good">&#x2713;</span>
-  return <span className="ct-alert-badge ct-alert-info">i</span>
-}
+  function addQuizQuestion() {
+    if (!quizText.trim()) return
+    setQuizQuestions((prev) => [...prev, { id: Date.now(), text: quizText.trim() }])
+    setQuizText('')
+    setShowQuizForm(false)
+  }
 
-function OverviewPage({ onNote, onMessage }: { onNote: () => void; onMessage: () => void }) {
-  const [alerts, setAlerts] = useState<Alert[]>(initialAlerts)
+  // Fake to-do items as the patient sees them (read-only)
   return (
     <>
+      {/* Patient card — no condition/stage */}
       <div className="ct-patient-card">
         <div className="ct-patient-avatar">{PATIENT.initials}</div>
         <div className="ct-patient-info">
           <strong>{PATIENT.name}</strong>
-          <span>{PATIENT.condition}</span>
           <span className="ct-patient-since">In care since {PATIENT.since}</span>
         </div>
-        <div className="ct-patient-age">
-          <strong>{PATIENT.age}</strong>
-          <span>yrs</span>
-        </div>
       </div>
 
-      <div className="ct-stat-row">
-        {[
-          { label: 'Habits done today', value: '2 / 3', icon: 'check', colour: 'ct-stat-green' },
-          { label: 'Games this week', value: '11', icon: 'game', colour: 'ct-stat-blue' },
-          { label: 'Meals logged today', value: '2 / 3', icon: 'fork', colour: 'ct-stat-peach' },
-          { label: 'Mood today', value: '4 / 5', icon: 'heart', colour: 'ct-stat-lavender' },
-        ].map((s) => (
-          <div className={`ct-stat-card ${s.colour}`} key={s.label}>
-            <span className="ct-stat-icon"><Icon name={s.icon} size={17} /></span>
-            <strong>{s.value}</strong>
-            <span>{s.label}</span>
-          </div>
-        ))}
-      </div>
-
+      {/* To-do list (read-only view) */}
       <div className="ct-panel">
         <div className="ct-panel-top">
-          <h3>Recent alerts</h3>
-          {alerts.length > 0 && <button className="ct-text-btn" onClick={() => setAlerts([])}>Clear all</button>}
+          <div>
+            <h3>Jamie&rsquo;s to-do list</h3>
+            <p className="ct-panel-sub">What Jamie sees today</p>
+          </div>
         </div>
-        {alerts.length === 0 ? (
-          <div className="ct-empty"><Icon name="check" size={22} />All clear \u2014 nothing to flag right now.</div>
+        <ul className="ct-todo-list">
+          {/* Daily check-in — status tracked via 'checkin' key */}
+          <li className={`ct-todo-row ${todoChecked['checkin'] ? 'ct-todo-done' : ''}`}>
+            <span className="ct-todo-icon">
+              <Icon name="quiz" size={15} />
+            </span>
+            <div className="ct-todo-info">
+              <span>Daily check-in</span>
+              <small>5 questions</small>
+            </div>
+            <span className={`ct-todo-status ${todoChecked['checkin'] ? 'ct-todo-status-done' : 'ct-todo-status-pending'}`}>
+              {todoChecked['checkin'] ? 'Done' : 'Pending'}
+            </span>
+          </li>
+          {/* Caretaker-set reminders with live checked state */}
+          {reminders.length === 0 ? (
+            <li className="ct-todo-row">
+              <span className="ct-todo-icon"><Icon name="bell" size={15} /></span>
+              <div className="ct-todo-info">
+                <span style={{ color: '#b2bcaa', fontStyle: 'italic' }}>No reminders set yet</span>
+              </div>
+            </li>
+          ) : (
+            reminders.map((r) => {
+              const done = !!todoChecked[String(r.id)]
+              return (
+                <li key={r.id} className={`ct-todo-row ${done ? 'ct-todo-done' : ''}`}>
+                  <span className="ct-todo-icon">
+                    <Icon name="bell" size={15} />
+                  </span>
+                  <div className="ct-todo-info">
+                    <span>{r.text}</span>
+                    <small>{r.time} &middot; {r.days}</small>
+                  </div>
+                  <span className={`ct-todo-status ${done ? 'ct-todo-status-done' : 'ct-todo-status-pending'}`}>
+                    {done ? 'Done' : 'Pending'}
+                  </span>
+                </li>
+              )
+            })
+          )}
+        </ul>
+      </div>
+
+      {/* Reminders */}
+      <div className="ct-panel">
+        <div className="ct-panel-top">
+          <div>
+            <h3>Reminders</h3>
+            <p className="ct-panel-sub">Appear in Jamie&rsquo;s to-do list</p>
+          </div>
+          <button className="ct-text-btn" onClick={() => { setShowReminderForm((v) => !v); setEditingReminder(null) }}>
+            <Icon name="plus" size={15} /> Add
+          </button>
+        </div>
+
+        {showReminderForm && (
+          <div className="ct-inline-form">
+            <input
+              className="ct-inline-input"
+              placeholder="e.g. Afternoon walk"
+              value={reminderText}
+              onChange={(e) => setReminderText(e.target.value)}
+              autoFocus
+            />
+            <div className="ct-inline-row">
+              <input
+                className="ct-inline-input ct-inline-time"
+                type="time"
+                value={reminderTime}
+                onChange={(e) => setReminderTime(e.target.value)}
+              />
+              <select
+                className="ct-select ct-inline-select"
+                value={reminderDays}
+                onChange={(e) => setReminderDays(e.target.value)}
+              >
+                <option>Daily</option>
+                <option>Weekdays</option>
+                <option>Weekends</option>
+                <option>Weekly</option>
+              </select>
+            </div>
+            <div className="ct-inline-actions">
+              <button className="ct-text-btn" onClick={() => setShowReminderForm(false)}>Cancel</button>
+              <button className="ct-action-save" onClick={addReminder}>Save reminder</button>
+            </div>
+          </div>
+        )}
+
+        {editingReminder && (
+          <div className="ct-inline-form">
+            <input
+              className="ct-inline-input"
+              value={editingReminder.text}
+              onChange={(e) => setEditingReminder({ ...editingReminder, text: e.target.value })}
+              autoFocus
+            />
+            <div className="ct-inline-row">
+              <input
+                className="ct-inline-input ct-inline-time"
+                type="time"
+                value={editingReminder.time.includes(':') ? editingReminder.time : ''}
+                onChange={(e) => setEditingReminder({ ...editingReminder, time: e.target.value || 'Anytime' })}
+              />
+              <select
+                className="ct-select ct-inline-select"
+                value={editingReminder.days}
+                onChange={(e) => setEditingReminder({ ...editingReminder, days: e.target.value })}
+              >
+                <option>Daily</option>
+                <option>Weekdays</option>
+                <option>Weekends</option>
+                <option>Weekly</option>
+              </select>
+            </div>
+            <div className="ct-inline-actions">
+              <button className="ct-text-btn" onClick={() => setEditingReminder(null)}>Cancel</button>
+              <button className="ct-action-save" onClick={saveEditReminder}>Save changes</button>
+            </div>
+          </div>
+        )}
+
+        {reminders.length === 0 && !showReminderForm ? (
+          <div className="ct-empty">No reminders yet.</div>
         ) : (
-          <ul className="ct-alert-list">
-            {alerts.map((a) => (
-              <li key={a.id} className="ct-alert-row">
-                <AlertBadge kind={a.kind} />
-                <div className="ct-alert-body">
-                  <span>{a.text}</span>
-                  <small>{a.time}</small>
+          <ul className="ct-reminder-list">
+            {reminders.map((r) => (
+              <li className="ct-reminder-row" key={r.id}>
+                <span className="ct-reminder-icon"><Icon name="bell" size={15} /></span>
+                <div className="ct-reminder-info">
+                  <strong>{r.text}</strong>
+                  <small>{r.time} &middot; {r.days}</small>
                 </div>
-                <button className="ct-dismiss" onClick={() => setAlerts((prev) => prev.filter((x) => x.id !== a.id))} aria-label="Dismiss alert">
-                  <Icon name="close" size={14} />
+                <div className="ct-reminder-actions">
+                  <button className="ct-dismiss" aria-label="Edit reminder" onClick={() => { setEditingReminder(r); setShowReminderForm(false) }}>
+                    <Icon name="edit" size={13} />
+                  </button>
+                  <button className="ct-dismiss" aria-label="Delete reminder" onClick={() => setReminders((prev) => prev.filter((x) => x.id !== r.id))}>
+                    <Icon name="trash" size={13} />
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      {/* Personalized quiz questions */}
+      <div className="ct-panel">
+        <div className="ct-panel-top">
+          <div>
+            <h3>Personalized check-in questions</h3>
+            <p className="ct-panel-sub">Added to Jamie&rsquo;s daily check-in pool</p>
+          </div>
+          <button className="ct-text-btn" onClick={() => setShowQuizForm((v) => !v)}>
+            <Icon name="plus" size={15} /> Add
+          </button>
+        </div>
+
+        {showQuizForm && (
+          <div className="ct-inline-form">
+            <input
+              className="ct-inline-input"
+              placeholder="e.g. What did you enjoy today?"
+              value={quizText}
+              onChange={(e) => setQuizText(e.target.value)}
+              autoFocus
+              onKeyDown={(e) => { if (e.key === 'Enter') addQuizQuestion() }}
+            />
+            <div className="ct-inline-actions">
+              <button className="ct-text-btn" onClick={() => { setShowQuizForm(false); setQuizText('') }}>Cancel</button>
+              <button className="ct-action-save" onClick={addQuizQuestion}>Save question</button>
+            </div>
+          </div>
+        )}
+
+        {quizQuestions.length === 0 && !showQuizForm ? (
+          <div className="ct-empty">No personalized questions yet.</div>
+        ) : (
+          <ul className="ct-quiz-list">
+            {quizQuestions.map((q) => (
+              <li className="ct-quiz-row" key={q.id}>
+                <span className="ct-quiz-icon"><Icon name="quiz" size={15} /></span>
+                <span className="ct-quiz-text">{q.text}</span>
+                <button
+                  className="ct-dismiss"
+                  aria-label="Remove question"
+                  onClick={() => setQuizQuestions((prev) => prev.filter((x) => x.id !== q.id))}
+                >
+                  <Icon name="trash" size={13} />
                 </button>
               </li>
             ))}
           </ul>
         )}
       </div>
-
-      <div className="ct-action-row">
-        <button className="ct-action-btn ct-action-primary" onClick={onNote}><Icon name="clip" size={18} />Add a note</button>
-        <button className="ct-action-btn" onClick={onMessage}><Icon name="message" size={18} />Send message</button>
-      </div>
     </>
   )
 }
 
-function ActivityPage() {
-  const [period, setPeriod] = useState('This week')
-  const data = period === 'This week' ? habitRate : [80, 60, 90, 70, 50, 80, 60]
+// ── Picture Day review page ───────────────────────────────────────────────────
+
+function PictureReviewPage() {
+  const [photos] = useState<{ prompt: string; src: string }[]>(SAMPLE_PHOTOS)
   return (
-    <>
-      <div className="ct-panel">
-        <div className="ct-panel-top">
-          <div><h3>Mood this week</h3><p className="ct-panel-sub">Based on daily check-ins</p></div>
-        </div>
-        <div className="ct-mood-row">
-          {moodHistory.map((e) => (
-            <div className="ct-mood-col" key={e.day}><MoodDot level={e.mood} /><small>{e.day}</small></div>
-          ))}
-        </div>
-        <div className="ct-mood-legend">
-          {[{ label: 'Low', colour: '#e8b5b5' }, { label: 'Fair', colour: '#e8ccb5' }, { label: 'OK', colour: '#e8e1b5' }, { label: 'Good', colour: '#c8deb5' }, { label: 'Great', colour: '#a8d4a8' }].map((l) => (
-            <span key={l.label} className="ct-mood-legend-item">
-              <span style={{ background: l.colour }} className="ct-mood-swatch" />{l.label}
-            </span>
-          ))}
+    <div className="ct-panel">
+      <div className="ct-panel-top">
+        <div>
+          <h3>Picture day</h3>
+          <p className="ct-panel-sub">Photos taken by Jamie</p>
         </div>
       </div>
-
-      <div className="ct-panel">
-        <div className="ct-panel-top">
-          <div><h3>Habit completion</h3><p className="ct-panel-sub">% of daily habits done</p></div>
-          <select className="ct-select" value={period} onChange={(e) => setPeriod(e.target.value)} aria-label="Chart period">
-            <option>This week</option>
-            <option>Last week</option>
-          </select>
+      {photos.length === 0 ? (
+        <div className="ct-picture-empty">
+          <span className="ct-picture-empty-icon"><Icon name="camera" size={30} /></span>
+          <p>No pictures yet. Jamie hasn&rsquo;t completed a picture day session.</p>
         </div>
-        <div className="ct-bar-chart">
-          {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day, i) => (
-            <div className="ct-bar-col" key={day}>
-              <span className="ct-bar-wrap"><span className="ct-bar" style={{ height: `${data[i]}%` }} /></span>
-              <small>{day}</small>
+      ) : (
+        <div className="ct-picture-grid">
+          {photos.map((p, i) => (
+            <div className="ct-picture-item" key={i}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={p.src} alt={p.prompt} />
+              <span>{p.prompt}</span>
             </div>
           ))}
         </div>
-      </div>
-
-      <div className="ct-panel">
-        <div className="ct-panel-top"><h3>Game engagement</h3></div>
-        <ul className="ct-game-list">
-          {gameActivity.map((g) => (
-            <li className="ct-game-row" key={g.name}>
-              <span className="ct-game-icon"><Icon name="game" size={16} /></span>
-              <div className="ct-game-info">
-                <strong>{g.name}</strong>
-                <small>Last played: {g.lastPlayed}</small>
-              </div>
-              <div className="ct-game-meta">
-                <strong>{g.completions}&times;</strong>
-                <span className={`ct-trend ${g.trend > 0 ? 'ct-trend-up' : g.trend < 0 ? 'ct-trend-down' : 'ct-trend-flat'}`}>
-                  {g.trend > 0 ? `+${g.trend}` : g.trend === 0 ? '\u2014' : `${g.trend}`}
-                </span>
-              </div>
-            </li>
-          ))}
-        </ul>
-      </div>
-    </>
+      )}
+    </div>
   )
 }
 
-function NotesPage({ onAdd }: { onAdd: () => void }) {
-  const [notes, setNotes] = useState<Note[]>(initialNotes)
+// ── Settings page ─────────────────────────────────────────────────────────────
+
+const LANGUAGES = [
+  'English', 'French', 'Spanish', 'Portuguese', 'Arabic',
+  'Mandarin', 'Cantonese', 'Italian', 'German', 'Dutch',
+]
+
+function SettingsPage({
+  patientLang,
+  setPatientLang,
+  caretakerLang,
+  setCaretakerLang,
+  outsidePictureDay,
+  setOutsidePictureDay,
+}: {
+  patientLang: string
+  setPatientLang: (v: string) => void
+  caretakerLang: string
+  setCaretakerLang: (v: string) => void
+  outsidePictureDay: boolean
+  setOutsidePictureDay: (v: boolean) => void
+}) {
   return (
     <>
       <div className="ct-panel">
         <div className="ct-panel-top">
-          <div><h3>Care notes</h3><p className="ct-panel-sub">Shared between you and the care team</p></div>
-          <button className="ct-text-btn" onClick={onAdd}><Icon name="plus" size={15} />Add</button>
+          <div>
+            <h3>Language</h3>
+            <p className="ct-panel-sub">Set the display language for each user</p>
+          </div>
         </div>
-        {notes.length === 0 ? (
-          <div className="ct-empty">No notes yet. Add one to keep the care team informed.</div>
-        ) : (
-          <ul className="ct-note-list">
-            {notes.map((n) => (
-              <li className="ct-note-row" key={n.id}>
-                <div className="ct-note-meta">
-                  <span className="ct-note-author">{n.author}</span>
-                  <span className="ct-note-date">{n.date}</span>
-                  <button className="ct-dismiss" onClick={() => setNotes((prev) => prev.filter((x) => x.id !== n.id))} aria-label="Delete note">
-                    <Icon name="close" size={13} />
-                  </button>
-                </div>
-                <p className="ct-note-text">{n.text}</p>
-              </li>
-            ))}
-          </ul>
-        )}
+        <div className="ct-settings-rows">
+          <div className="ct-settings-row">
+            <div className="ct-settings-label">
+              <span className="ct-settings-icon"><Icon name="globe" size={16} /></span>
+              <div>
+                <strong>Jamie&rsquo;s language</strong>
+                <small>What the patient sees</small>
+              </div>
+            </div>
+            <select
+              className="ct-select"
+              value={patientLang}
+              onChange={(e) => setPatientLang(e.target.value)}
+              aria-label="Patient language"
+            >
+              {LANGUAGES.map((l) => <option key={l}>{l}</option>)}
+            </select>
+          </div>
+          <div className="ct-settings-row">
+            <div className="ct-settings-label">
+              <span className="ct-settings-icon"><Icon name="globe" size={16} /></span>
+              <div>
+                <strong>Your language</strong>
+                <small>What you see as caretaker</small>
+              </div>
+            </div>
+            <select
+              className="ct-select"
+              value={caretakerLang}
+              onChange={(e) => setCaretakerLang(e.target.value)}
+              aria-label="Caretaker language"
+            >
+              {LANGUAGES.map((l) => <option key={l}>{l}</option>)}
+            </select>
+          </div>
+        </div>
       </div>
 
       <div className="ct-panel">
         <div className="ct-panel-top">
-          <div><h3>Upcoming reminders</h3><p className="ct-panel-sub">Set to reach Jamie automatically</p></div>
-          <button className="ct-text-btn" onClick={onAdd}><Icon name="plus" size={15} />Add</button>
+          <div>
+            <h3>Picture day</h3>
+            <p className="ct-panel-sub">Control where picture day is available</p>
+          </div>
         </div>
-        <ul className="ct-reminder-list">
-          {[
-            { text: 'Afternoon walk prompt', time: '3:00 PM', days: 'Daily' },
-            { text: 'Evening hydration check', time: '7:30 PM', days: 'Daily' },
-            { text: 'Weekly mood review', time: 'Friday 10 AM', days: 'Weekly' },
-          ].map((r) => (
-            <li className="ct-reminder-row" key={r.text}>
-              <span className="ct-reminder-icon"><Icon name="bell" size={15} /></span>
-              <div className="ct-reminder-info">
-                <strong>{r.text}</strong>
-                <small>{r.time} &middot; {r.days}</small>
+        <div className="ct-settings-rows">
+          <div className="ct-settings-row">
+            <div className="ct-settings-label">
+              <span className="ct-settings-icon"><Icon name="camera" size={16} /></span>
+              <div>
+                <strong>Outside picture day</strong>
+                <small>Jamie can take pictures outdoors</small>
               </div>
-              <span className="ct-reminder-badge">{r.days}</span>
-            </li>
-          ))}
-        </ul>
+            </div>
+            <button
+              className={`ct-toggle ${outsidePictureDay ? 'ct-toggle-on' : ''}`}
+              role="switch"
+              aria-checked={outsidePictureDay}
+              onClick={() => setOutsidePictureDay(!outsidePictureDay)}
+            >
+              <span className="ct-toggle-thumb" />
+            </button>
+          </div>
+        </div>
       </div>
     </>
   )
 }
 
-type CTPage = 'Overview' | 'Activity' | 'Notes'
-type CTModal = 'Add a note' | 'Send message' | null
+// ── Root component ────────────────────────────────────────────────────────────
 
-export default function CaretakerApp({ onSwitch }: { onSwitch: () => void }) {
+type CTPage = 'Overview' | 'Pictures' | 'Family' | 'Settings'
+
+export default function CaretakerApp({
+  onSwitch,
+  reminders,
+  setReminders,
+  todoChecked,
+  familyMembers,
+  setFamilyMembers,
+}: {
+  onSwitch: () => void
+  reminders: Reminder[]
+  setReminders: React.Dispatch<React.SetStateAction<Reminder[]>>
+  todoChecked: Record<string, boolean>
+  familyMembers: FamilyMember[] | null
+  setFamilyMembers: React.Dispatch<React.SetStateAction<FamilyMember[]>>
+}) {
   const screenRef = useRef<HTMLElement>(null)
   const [page, setPage] = useState<CTPage>('Overview')
-  const [modal, setModal] = useState<CTModal>(null)
   const [toast, setToast] = useState('')
-  const [noteText, setNoteText] = useState('')
-  const [messageText, setMessageText] = useState('')
+
+  // Local state only for this app
+  const [quizQuestions, setQuizQuestions] = useState<QuizQuestion[]>(initialQuizQuestions)
+  const [patientLang, setPatientLang] = useState('English')
+  const [caretakerLang, setCaretakerLang] = useState('English')
+  const [outsidePictureDay, setOutsidePictureDay] = useState(false)
 
   useEffect(() => { screenRef.current?.scrollTo({ top: 0, behavior: 'instant' }) }, [page])
 
-  useEffect(() => {
-    if (!modal) return
-    const screen = screenRef.current
-    if (!screen) return
-    const prev = screen.style.overflowY
-    screen.style.overflowY = 'hidden'
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setModal(null) }
-    window.addEventListener('keydown', onKey)
-    return () => { screen.style.overflowY = prev; window.removeEventListener('keydown', onKey) }
-  }, [modal])
-
   function notify(msg: string) { setToast(msg); window.setTimeout(() => setToast(''), 3200) }
 
-  const pageTitle = page === 'Overview' ? 'Good morning, Alex.' : page === 'Activity' ? 'Jamie\u2019s activity.' : 'Notes & reminders.'
-  const pageSub = page === 'Overview' ? 'Here\u2019s how Jamie is doing today.' : page === 'Activity' ? 'A week at a glance.' : 'Keep the care team in the loop.'
+  const pageMeta: Record<CTPage, { title: string; sub: string }> = {
+    Overview:  { title: 'Good morning, Alex.', sub: 'Here\u2019s how Jamie is doing today.' },
+    Pictures:  { title: 'Picture day.',         sub: 'Review photos Jamie has taken.' },
+    Family:    { title: 'Family tree.',          sub: 'View and edit Jamie\u2019s family tree.' },
+    Settings:  { title: 'Settings.',             sub: 'Language and app preferences.' },
+  }
+
+  const navItems: { name: CTPage; icon: string; label: string }[] = [
+    { name: 'Overview', icon: 'grid',      label: 'Overview'    },
+    { name: 'Pictures', icon: 'camera',    label: 'Pictures'    },
+    { name: 'Family',   icon: 'family',    label: 'Family tree' },
+    { name: 'Settings', icon: 'settings',  label: 'Settings'    },
+  ]
 
   return (
     <div className="app-shell ct-shell">
       <aside className="sidebar">
         <nav aria-label="Caretaker navigation">
-          {([
-            { name: 'Overview' as CTPage, icon: 'grid', label: 'Overview' },
-            { name: 'Activity' as CTPage, icon: 'activity', label: 'Activity' },
-            { name: 'Notes' as CTPage, icon: 'clip', label: 'Notes' },
-          ]).map((item) => (
-            <button key={item.name} className={`nav-item ${page === item.name ? 'active' : ''}`} onClick={() => setPage(item.name)} aria-current={page === item.name ? 'page' : undefined}>
+          {navItems.map((item) => (
+            <button
+              key={item.name}
+              className={`nav-item ${page === item.name ? 'active' : ''}`}
+              onClick={() => setPage(item.name)}
+              aria-current={page === item.name ? 'page' : undefined}
+            >
               <Icon name={item.icon} />
               {item.label}
               {page === item.name && <span className="nav-dot" />}
@@ -344,22 +592,52 @@ export default function CaretakerApp({ onSwitch }: { onSwitch: () => void }) {
           <section className="page-heading">
             <div>
               <div className="eyebrow ct-eyebrow">CARETAKER VIEW</div>
-              <h1>{pageTitle}<span className="heading-spark"><Icon name="heart" size={26} /></span></h1>
-              <p>{pageSub}</p>
+              <h1>
+                {pageMeta[page].title}
+                <span className="heading-spark"><Icon name="leaf" size={26} /></span>
+              </h1>
+              <p>{pageMeta[page].sub}</p>
             </div>
             <div className="ct-header-right">
-              <button className="date-button" aria-label="Notifications" onClick={() => notify('No new notifications.')}><Icon name="bell" size={20} /></button>
-              <button className="ct-switch-btn" onClick={onSwitch} title="Switch to patient view" aria-label="Switch to patient view"><Icon name="users" size={16} /></button>
+              <button className="date-button" aria-label="Notifications" onClick={() => notify('No new notifications.')}>
+                <Icon name="bell" size={20} />
+              </button>
+              <button className="ct-switch-btn" onClick={onSwitch} title="Switch to patient view" aria-label="Switch to patient view">
+                <Icon name="users" size={16} />
+              </button>
             </div>
           </section>
 
-          {page === 'Overview' && <OverviewPage onNote={() => setModal('Add a note')} onMessage={() => setModal('Send message')} />}
-          {page === 'Activity' && <ActivityPage />}
-          {page === 'Notes' && <NotesPage onAdd={() => setModal('Add a note')} />}
+          {page === 'Overview' && (
+            <OverviewPage
+              reminders={reminders}
+              setReminders={setReminders}
+              quizQuestions={quizQuestions}
+              setQuizQuestions={setQuizQuestions}
+              todoChecked={todoChecked}
+            />
+          )}
+          {page === 'Pictures' && <PictureReviewPage />}
+          {page === 'Family' && (
+            <FamilyTree
+              members={familyMembers ?? undefined}
+              setMembers={setFamilyMembers}
+            />
+          )}
+          {page === 'Settings' && (
+            <SettingsPage
+              patientLang={patientLang}
+              setPatientLang={setPatientLang}
+              caretakerLang={caretakerLang}
+              setCaretakerLang={setCaretakerLang}
+              outsidePictureDay={outsidePictureDay}
+              setOutsidePictureDay={setOutsidePictureDay}
+            />
+          )}
 
           <footer className="page-footer">
             <span><Icon name="leaf" size={14} /> Caring with intention.</span>
-            <span>bloom. caretaker</span>
+            <span>releaf. caretaker</span>
           </footer>
         </div>
       </main>
@@ -369,29 +647,6 @@ export default function CaretakerApp({ onSwitch }: { onSwitch: () => void }) {
           <span><Icon name="check" size={17} /></span>
           {toast}
           <button onClick={() => setToast('')} aria-label="Dismiss"><Icon name="close" size={16} /></button>
-        </div>
-      )}
-
-      {modal && (
-        <div className="modal-backdrop" onClick={() => setModal(null)}>
-          <section className="modal ct-modal" role="dialog" aria-modal="true" aria-labelledby="ct-modal-title" onClick={(e) => e.stopPropagation()}>
-            <button className="modal-close icon-button" onClick={() => setModal(null)} aria-label="Close"><Icon name="close" /></button>
-            <span className="modal-leaf ct-modal-icon"><Icon name={modal === 'Add a note' ? 'clip' : 'message'} size={22} /></span>
-            <h2 id="ct-modal-title">{modal}</h2>
-            {modal === 'Add a note' ? (
-              <>
-                <p>Add a note visible to you and the care team.</p>
-                <label>Note<textarea className="ct-textarea" rows={4} placeholder="e.g. Jamie seemed a little tired this afternoon\u2026" value={noteText} onChange={(e) => setNoteText(e.target.value)} autoFocus /></label>
-                <button className="primary-button" onClick={() => { if (!noteText.trim()) return; notify('Note saved to the care log.'); setNoteText(''); setModal(null) }}>Save note <Icon name="arrow" size={17} /></button>
-              </>
-            ) : (
-              <>
-                <p>Send a gentle in-app message to Jamie.</p>
-                <label>Message<textarea className="ct-textarea" rows={3} placeholder="e.g. Good morning, Jamie! Don\u2019t forget your walk today." value={messageText} onChange={(e) => setMessageText(e.target.value)} autoFocus /></label>
-                <button className="primary-button" onClick={() => { if (!messageText.trim()) return; notify('Message sent to Jamie.'); setMessageText(''); setModal(null) }}>Send message <Icon name="arrow" size={17} /></button>
-              </>
-            )}
-          </section>
         </div>
       )}
     </div>
