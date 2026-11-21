@@ -1131,7 +1131,7 @@ export default function CaretakerApp({
       sub: isLinked ? `Here\u2019s how ${patientFirstName} is doing today.` : 'Link with your patient to get started.',
     },
     Pictures:  { title: 'Picture day.',         sub: isLinked ? `Review photos ${patientFirstName} has taken.` : 'Link up to review patient photos.' },
-    Family:    { title: 'Family tree.',          sub: isLinked ? `View and edit ${patientFirstName}\u2019s family tree.` : 'Link up to manage the family tree.' },
+    Family:    { title: 'Your tree.',             sub: isLinked ? `View and edit ${patientFirstName}\u2019s family tree.` : 'Link up to manage the family tree.' },
     Settings:  { title: 'Settings.',             sub: isLinked ? 'Language and app preferences.' : 'Enter a patient ID to link up.' },
   }
 

@@ -20,7 +20,7 @@ export const gameNames = [
   'Counting boxes',
   'Find the differences',
   'Picture day',
-  'Simple Sudoku',
+  'Sudoku',
 ] as const
 export type GameName = (typeof gameNames)[number]
 
@@ -56,6 +56,7 @@ export function GameCards({ onPlay }: { onPlay: (game: GameName) => void }) {
           art: 'sudoku',
           tag: '04',
         },
+
       ].map((game, i) => (
         <button
           type="button"
@@ -76,11 +77,11 @@ export function GameCards({ onPlay }: { onPlay: (game: GameName) => void }) {
                 <i />
               </>
             ) : game.art === 'sudoku' ? (
-              <svg viewBox="0 0 100 100" width="100" height="100" className="sudoku-icon">
-                <rect x="10" y="10" width="35" height="35" rx="4" fill="currentColor" opacity="0.15" />
-                <rect x="55" y="10" width="35" height="35" rx="4" fill="currentColor" opacity="0.15" />
-                <rect x="10" y="55" width="35" height="35" rx="4" fill="currentColor" opacity="0.15" />
-                <rect x="55" y="55" width="35" height="35" rx="4" fill="currentColor" opacity="0.15" />
+              <svg viewBox="0 0 100 100" width="62" height="62" className="sudoku-icon">
+                <rect x="10" y="10" width="35" height="35" rx="4" fill="currentColor" opacity="0.15" transform="rotate(-6 27.5 27.5)" />
+                <rect x="55" y="10" width="35" height="35" rx="4" fill="currentColor" opacity="0.15" transform="rotate(5 72.5 27.5)" />
+                <rect x="10" y="55" width="35" height="35" rx="4" fill="currentColor" opacity="0.15" transform="rotate(5 27.5 72.5)" />
+                <rect x="55" y="55" width="35" height="35" rx="4" fill="currentColor" opacity="0.15" transform="rotate(-6 72.5 72.5)" />
                 <text x="27.5" y="37" fontSize="24" fontWeight="700" fill="currentColor" textAnchor="middle">1</text>
                 <text x="72.5" y="37" fontSize="24" fontWeight="700" fill="currentColor" textAnchor="middle">2</text>
                 <text x="27.5" y="82" fontSize="24" fontWeight="700" fill="currentColor" textAnchor="middle">3</text>
@@ -107,7 +108,7 @@ export function Game({ name, onComplete, onRequestApproval }: {
 }) {
   if (name === 'Counting boxes') return <CountingBoxes />
   if (name === 'Find the differences') return <Differences />
-  if (name === 'Simple Sudoku') return <SimpleSudoku />
+  if (name === 'Sudoku') return <SimpleSudoku />
   return <PictureDayRoot onComplete={onComplete} requireApproval={onRequestApproval} />
 }
 
@@ -369,88 +370,126 @@ function Differences() {
   )
 }
 
-// â”€â”€ Simple Sudoku (4x4) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Sudoku (3-puzzle session: puzzle 1 is 4×4, puzzles 2–3 are 9×9) ───────────────
 
-function SimpleSudoku() {
-  const [board, setBoard] = useState<(number | null)[][]>(() => generateSudoku())
-  const [initial, setInitial] = useState<boolean[][]>(() => 
-    board.map(row => row.map(cell => cell !== null))
-  )
-  const [showSparkle, setShowSparkle] = useState(false)
-
-  function generateSudoku(): (number | null)[][] {
-    // Start with a solved 4x4 sudoku
-    const solutions = [
-      [[1,2,3,4],[3,4,1,2],[2,3,4,1],[4,1,2,3]],
-      [[2,1,4,3],[4,3,2,1],[1,4,3,2],[3,2,1,4]],
-      [[3,4,2,1],[1,2,4,3],[4,3,1,2],[2,1,3,4]],
-    ]
-    const solution = solutions[Math.floor(Math.random() * solutions.length)]
-    const puzzle: (number | null)[][] = solution.map(row => [...row])
-    
-    // Remove some numbers (keep 6-8 numbers)
-    const cellsToRemove = 8 + Math.floor(Math.random() * 3)
-    let removed = 0
-    while (removed < cellsToRemove) {
-      const row = Math.floor(Math.random() * 4)
-      const col = Math.floor(Math.random() * 4)
-      if (puzzle[row][col] !== null) {
-        puzzle[row][col] = null
-        removed++
-      }
-    }
-    
-    return puzzle
+// 4×4 generator
+function generate4x4(): (number | null)[][] {
+  const solutions: number[][][] = [
+    [[1,2,3,4],[3,4,1,2],[2,3,4,1],[4,1,2,3]],
+    [[2,1,4,3],[4,3,2,1],[1,4,3,2],[3,2,1,4]],
+    [[3,4,2,1],[1,2,4,3],[4,3,1,2],[2,1,3,4]],
+  ]
+  const solution = solutions[Math.floor(Math.random() * solutions.length)]
+  const puzzle: (number | null)[][] = solution.map(row => [...row])
+  const cellsToRemove = 8 + Math.floor(Math.random() * 3)
+  let removed = 0
+  while (removed < cellsToRemove) {
+    const row = Math.floor(Math.random() * 4)
+    const col = Math.floor(Math.random() * 4)
+    if (puzzle[row][col] !== null) { puzzle[row][col] = null; removed++ }
   }
+  return puzzle
+}
 
-  function handleInput(row: number, col: number, value: string) {
-    if (initial[row][col]) return
-    
-    const num = value ? parseInt(value) : null
-    if (num !== null && (num < 1 || num > 4)) return
-    
-    const newBoard = board.map(r => [...r])
-    newBoard[row][col] = num
-    setBoard(newBoard)
-  }
-
-  function isComplete(): boolean {
-    return board.every(row => row.every(cell => cell !== null)) && isValid()
-  }
-
-  function isValid(): boolean {
-    // Check rows
-    for (let row of board) {
-      const seen = new Set(row.filter(x => x !== null))
-      if (seen.size !== row.filter(x => x !== null).length) return false
-    }
-    
-    // Check columns
-    for (let col = 0; col < 4; col++) {
-      const column = board.map(row => row[col]).filter(x => x !== null)
-      const seen = new Set(column)
-      if (seen.size !== column.length) return false
-    }
-    
-    // Check 2x2 boxes
-    for (let boxRow = 0; boxRow < 2; boxRow++) {
-      for (let boxCol = 0; boxCol < 2; boxCol++) {
-        const box = []
-        for (let i = 0; i < 2; i++) {
-          for (let j = 0; j < 2; j++) {
-            const val = board[boxRow * 2 + i][boxCol * 2 + j]
-            if (val !== null) box.push(val)
+// 9×9 generator via backtracking
+function solve9x9(grid: number[][]): boolean {
+  for (let r = 0; r < 9; r++) {
+    for (let c = 0; c < 9; c++) {
+      if (grid[r][c] === 0) {
+        const nums = [1,2,3,4,5,6,7,8,9].sort(() => Math.random() - 0.5)
+        for (const n of nums) {
+          if (canPlace(grid, r, c, n)) {
+            grid[r][c] = n
+            if (solve9x9(grid)) return true
+            grid[r][c] = 0
           }
         }
-        const seen = new Set(box)
-        if (seen.size !== box.length) return false
+        return false
       }
     }
-    
-    return true
   }
+  return true
+}
 
-  const complete = isComplete()
+function canPlace(grid: number[][], row: number, col: number, n: number): boolean {
+  if (grid[row].includes(n)) return false
+  if (grid.some(r => r[col] === n)) return false
+  const br = Math.floor(row / 3) * 3
+  const bc = Math.floor(col / 3) * 3
+  for (let i = br; i < br + 3; i++)
+    for (let j = bc; j < bc + 3; j++)
+      if (grid[i][j] === n) return false
+  return true
+}
+
+function generate9x9(cellsToRemove: number): (number | null)[][] {
+  const grid: number[][] = Array.from({ length: 9 }, () => Array(9).fill(0))
+  solve9x9(grid)
+  const puzzle: (number | null)[][] = grid.map(row => [...row] as number[])
+  let removed = 0
+  const positions = Array.from({ length: 81 }, (_, i) => i).sort(() => Math.random() - 0.5)
+  for (const pos of positions) {
+    if (removed >= cellsToRemove) break
+    const r = Math.floor(pos / 9)
+    const c = pos % 9
+    if (puzzle[r][c] !== null) { puzzle[r][c] = null; removed++ }
+  }
+  return puzzle
+}
+
+function isValidBoard(board: (number | null)[][], size: number): boolean {
+  for (const row of board) {
+    const filled = row.filter(x => x !== null) as number[]
+    if (new Set(filled).size !== filled.length) return false
+  }
+  for (let col = 0; col < size; col++) {
+    const filled = board.map(row => row[col]).filter(x => x !== null) as number[]
+    if (new Set(filled).size !== filled.length) return false
+  }
+  if (size === 9) {
+    for (let br = 0; br < 3; br++) {
+      for (let bc = 0; bc < 3; bc++) {
+        const box: number[] = []
+        for (let i = 0; i < 3; i++)
+          for (let j = 0; j < 3; j++) {
+            const v = board[br*3+i][bc*3+j]
+            if (v !== null) box.push(v)
+          }
+        if (new Set(box).size !== box.length) return false
+      }
+    }
+  }
+  return true
+}
+
+function isBoardComplete(board: (number | null)[][], size: number): boolean {
+  return board.every(row => row.every(cell => cell !== null)) && isValidBoard(board, size)
+}
+
+type PuzzleSpec = { board: (number | null)[][]; initial: boolean[][]; size: number }
+
+function makePuzzleSpec(puzzleIndex: number): PuzzleSpec {
+  let board: (number | null)[][]
+  if (puzzleIndex === 0) {
+    board = generate4x4()
+  } else if (puzzleIndex === 1) {
+    board = generate9x9(35) // easier: ~46 givens
+  } else {
+    board = generate9x9(45) // harder: ~36 givens
+  }
+  return { board, initial: board.map(row => row.map(cell => cell !== null)), size: board.length }
+}
+
+function SimpleSudoku() {
+  const TOTAL = 3
+  const [puzzleIdx, setPuzzleIdx] = useState(0)
+  const [spec, setSpec] = useState<PuzzleSpec>(() => makePuzzleSpec(0))
+  const [board, setBoard] = useState<(number | null)[][]>(() => spec.board)
+  const [showSparkle, setShowSparkle] = useState(false)
+
+  const { initial, size } = spec
+  const complete = isBoardComplete(board, size)
+  const isLast = puzzleIdx === TOTAL - 1
 
   useEffect(() => {
     if (complete) {
@@ -460,29 +499,54 @@ function SimpleSudoku() {
     }
   }, [complete])
 
-  function handleNewPuzzle() {
-    const newBoard = generateSudoku()
+  function handleInput(row: number, col: number, value: string) {
+    if (initial[row][col]) return
+    const num = value ? parseInt(value) : null
+    if (num !== null && (num < 1 || num > size)) return
+    const newBoard = board.map(r => [...r])
+    newBoard[row][col] = num
     setBoard(newBoard)
-    setInitial(newBoard.map(row => row.map(cell => cell !== null)))
   }
+
+  function advance() {
+    const next = isLast ? 0 : puzzleIdx + 1
+    const nextSpec = makePuzzleSpec(next)
+    setPuzzleIdx(next)
+    setSpec(nextSpec)
+    setBoard(nextSpec.board)
+  }
+
+  const description = size === 4
+    ? 'Fill each row, column, and 2\u00d72 box with numbers 1\u20134.'
+    : 'Fill each row, column, and 3\u00d73 box with numbers 1\u20139.'
 
   return (
     <div className="sudoku-game" style={{ position: 'relative' }}>
       <SparklesBurst active={showSparkle} />
-      <p>Fill each row, column, and 2Ã—2 box with numbers 1-4.</p>
-      
-      <div className="sudoku-grid">
+
+      <div className="counting-match-progress" aria-label={`Puzzle ${puzzleIdx + 1} of ${TOTAL}`}>
+        {Array.from({ length: TOTAL }, (_, i) => (
+          <span
+            key={i}
+            className={`counting-pip${i < puzzleIdx ? ' done' : i === puzzleIdx ? ' active' : ''}`}
+          />
+        ))}
+      </div>
+
+      <p>{description}</p>
+
+      <div className={`sudoku-grid sudoku-grid-${size}`}>
         {board.map((row, rowIdx) => (
-          <div key={rowIdx} className="sudoku-row">
+          <div key={rowIdx} className={`sudoku-row${size === 9 && rowIdx % 3 === 2 && rowIdx < 8 ? ' sudoku-row-box-border' : ''}`}>
             {row.map((cell, colIdx) => (
               <input
                 key={`${rowIdx}-${colIdx}`}
                 type="text"
                 inputMode="numeric"
                 maxLength={1}
-                value={cell || ''}
+                value={cell ?? ''}
                 onChange={(e) => handleInput(rowIdx, colIdx, e.target.value)}
-                className={`sudoku-cell-input ${initial[rowIdx][colIdx] ? 'sudoku-given' : ''}`}
+                className={`sudoku-cell-input${size === 9 ? ' sudoku-cell-9' : ''}${initial[rowIdx][colIdx] ? ' sudoku-given' : ''}${size === 9 && colIdx % 3 === 2 && colIdx < 8 ? ' sudoku-col-box-border' : ''}`}
                 disabled={initial[rowIdx][colIdx]}
                 aria-label={`Row ${rowIdx + 1}, Column ${colIdx + 1}`}
               />
@@ -496,11 +560,10 @@ function SimpleSudoku() {
       </div>
 
       {complete && (
-        <button className="primary-button" onClick={handleNewPuzzle}>
-          New puzzle \u2192
+        <button className="primary-button" onClick={advance}>
+          {isLast ? 'New game' : 'Next puzzle'}
         </button>
       )}
     </div>
   )
 }
-
