@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useRef, useState } from 'react'
 import type { CSSProperties, FormEvent } from 'react'
@@ -223,7 +223,7 @@ export default function App() {
           fats: 10,
         },
       ])
-      notify('Your meal has been added to today’s journal.')
+      notify('Your meal has been added to todayΓÇÖs journal.')
     } else if (modal === 'Log activity') {
       setActivity(activity + Number(data.get('steps')))
       notify('A little movement, a little progress. Activity added!')
@@ -294,7 +294,7 @@ export default function App() {
               <br />A healthier you.
             </h3>
             <p>
-              Progress isn’t always a straight line.
+              Progress isnΓÇÖt always a straight line.
               <br />
               Keep growing at your own pace.
             </p>
@@ -342,7 +342,7 @@ export default function App() {
               {page !== 'Family tree' && (
                 <p>
                   {page === 'Overview'
-                    ? 'It’s chilly today, make sure to stay warm.'
+                    ? 'ItΓÇÖs chilly today, make sure to stay warm.'
                     : page === 'Games'
                       ? 'Choose a little game and play at your own pace.'
                       : 'Write it, say it, and remember what made today yours.'}
@@ -365,12 +365,12 @@ export default function App() {
                       <br />A lot of possibility.
                     </h2>
                     <p>
-                      You’re showing up for yourself.
+                      YouΓÇÖre showing up for yourself.
                       <br />
-                      And that’s a beautiful place to start.
+                      And thatΓÇÖs a beautiful place to start.
                     </p>
                     <button onClick={() => setPage('Daily habits')}>
-                      Let’s keep growing <Icon name="arrow" size={17} />
+                      LetΓÇÖs keep growing <Icon name="arrow" size={17} />
                     </button>
                   </div>
                   <div className="garden" aria-hidden="true">
@@ -399,8 +399,8 @@ export default function App() {
                 </section>
                 <section className="plan-card">
                   <div className="section-top">
-                    <h3>Today’s quiz</h3>
-                    <span className="mini-badge">You’ve got this</span>
+                    <h3>TodayΓÇÖs quiz</h3>
+                    <span className="mini-badge">YouΓÇÖve got this</span>
                   </div>
                   <div className="plan-body">
                     <div className="progress-ring" style={{ '--progress': '50%' } as CSSProperties}>
@@ -548,7 +548,7 @@ export default function App() {
                     <Icon name="sun" size={14} />
                   </span>
                   <span>
-                    {completed} of {habits.length} to-dos complete. You’re doing beautifully.
+                    {completed} of {habits.length} to-dos complete. YouΓÇÖre doing beautifully.
                   </span>
                 </div>
               </section>
@@ -603,7 +603,7 @@ export default function App() {
                             <strong>{meal.name}</strong>
                             <small>
                               {meal.type}
-                              <span>·</span>
+                              <span>┬╖</span>
                               {meal.time}
                             </small>
                           </div>
@@ -692,7 +692,7 @@ export default function App() {
                   your own pace.
                 </p>
                 <button className="primary-button" onClick={() => setModal(null)}>
-                  Got it, let’s grow
+                  Got it, letΓÇÖs grow
                 </button>
               </>
             ) : modal === 'Take Bloom with you' ? (
