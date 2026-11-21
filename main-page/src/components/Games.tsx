@@ -1,7 +1,20 @@
 'use client'
 
 import Image from 'next/image'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+
+// ── Sparkle burst on correct answer ─────────────────────────────────────────
+
+function SparklesBurst({ active }: { active: boolean }) {
+  const particles = ['✦', '✧', '★', '✦', '✧', '✦', '✧', '★', '✦', '✧', '✦', '✧']
+  return (
+    <div className={`sparkle-burst${active ? ' sparkle-burst-active' : ''}`} aria-hidden="true">
+      {particles.map((s, i) => (
+        <span key={i} className={`sparkle-particle sparkle-p${i}`}>{s}</span>
+      ))}
+    </div>
+  )
+}
 
 export const gameNames = [
   'Counting boxes',
@@ -94,6 +107,7 @@ const picturePrompts = [
 function PictureDay() {
   const [pictures, setPictures] = useState<string[]>([])
   const [message, setMessage] = useState('Your first picture is waiting.')
+  const [showSparkle, setShowSparkle] = useState(false)
   const complete = pictures.length === picturePrompts.length
 
   function addPicture(file?: File) {
@@ -101,12 +115,15 @@ function PictureDay() {
     const reader = new FileReader()
     reader.addEventListener('load', () => {
       if (typeof reader.result !== 'string') return
-      setPictures((current) => [...current, reader.result as string])
-      setMessage(
-        pictures.length === picturePrompts.length - 1
-          ? 'Picture Day complete! What a lovely little collection.'
-          : 'Lovely picture! Here comes your next prompt.',
-      )
+      const newPictures = [...pictures, reader.result as string]
+      setPictures(newPictures)
+      if (newPictures.length === picturePrompts.length) {
+        setMessage('Picture Day complete! What a lovely little collection.')
+        setShowSparkle(true)
+        window.setTimeout(() => setShowSparkle(false), 1200)
+      } else {
+        setMessage('Lovely picture! Here comes your next prompt.')
+      }
     })
     reader.readAsDataURL(file)
   }
@@ -117,7 +134,8 @@ function PictureDay() {
   }
 
   return (
-    <div className="picture-day-game">
+    <div className="picture-day-game" style={{ position: 'relative' }}>
+      <SparklesBurst active={showSparkle} />
       <p>Take three pictures inspired by the gentle prompts. Use your camera or choose a photo.</p>
       <div className="picture-prompt">
         <span>
@@ -196,12 +214,23 @@ function PictureDay() {
 function CountingBoxes() {
   const [round, setRound] = useState(0)
   const [answer, setAnswer] = useState<number | null>(null)
+  const [showSparkle, setShowSparkle] = useState(false)
   const target = [6, 4, 9, 7, 3, 10, 5, 8][round % 8]
   const options = [target - 1, target, target + 1, target + 2]
   const offset = round % 4
   const correct = answer === target
+
+  useEffect(() => {
+    if (correct) {
+      setShowSparkle(true)
+      const t = window.setTimeout(() => setShowSparkle(false), 1200)
+      return () => window.clearTimeout(t)
+    }
+  }, [correct])
+
   return (
-    <div className="counting-game">
+    <div className="counting-game" style={{ position: 'relative' }}>
+      <SparklesBurst active={showSparkle} />
       <p>How many boxes can you see? Take your time, then tap your answer.</p>
       <div className="counting-board" role="img" aria-label="Boxes to count">
         {Array.from({ length: target }, (_, i) => (
@@ -362,21 +391,28 @@ function Differences() {
   const [found, setFound] = useState<number[]>([])
   const [message, setMessage] = useState('Look for three changes in the second picture.')
   const [round, setRound] = useState(0)
+  const [showSparkle, setShowSparkle] = useState(false)
   const changes = round % 2 === 0 ? [1, 3, 5] : [0, 2, 4]
   const complete = found.length === changes.length
+
   function choose(index: number) {
     if (found.includes(index) || complete) return
     if (changes.includes(index)) {
-      setFound([...found, index])
-      setMessage(
-        found.length === 2
-          ? 'You found all three! Brilliant spotting.'
-          : 'You spotted one! Keep looking.',
-      )
+      const newFound = [...found, index]
+      setFound(newFound)
+      if (newFound.length === changes.length) {
+        setMessage('You found all three! Brilliant spotting.')
+        setShowSparkle(true)
+        window.setTimeout(() => setShowSparkle(false), 1200)
+      } else {
+        setMessage('You spotted one! Keep looking.')
+      }
     } else setMessage('Those two match. Try another shape.')
   }
+
   return (
-    <div className="differences-game">
+    <div className="differences-game" style={{ position: 'relative' }}>
+      <SparklesBurst active={showSparkle} />
       <p>
         Compare the two pictures. Tap the three shapes that are different in the second picture.
       </p>
