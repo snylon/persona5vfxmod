@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { CSSProperties, FormEvent } from 'react'
 import { Game, GameCards, gameNames } from './Games'
 import type { GameName } from './Games'
+import FamilyTree from './FamilyTree'
 import Journal from './Journal'
 
 function Icon({ name, size = 20, ...props }: { name: string; size?: number; className?: string }) {
@@ -329,9 +330,9 @@ export default function App() {
                   ? 'Hi, Jamie!'
                   : page === 'Games'
                     ? 'Your games.'
-                  : page === 'Family tree'
-                    ? 'Your family tree.'
-                    : 'Your life, one page at a time.'}
+                    : page === 'Family tree'
+                      ? 'Your family tree.'
+                      : 'Your life, one page at a time.'}
                 {page === 'Overview' && (
                   <span className="heading-spark" aria-hidden="true">
                     <Icon name="cloud" size={28} />
@@ -431,75 +432,7 @@ export default function App() {
 
           {page === 'Games' && <GameCards onPlay={(game) => setModal(game)} />}
 
-          {page === 'Family tree' && (
-            <section className="family-tree-panel" aria-label="Lewis family tree">
-              <div className="family-tree-intro">
-                <span className="family-tree-icon">
-                  <Icon name="family" size={22} />
-                </span>
-                <div>
-                  <h3>The Lewis family</h3>
-                </div>
-              </div>
-              <div className="family-tree">
-                <svg
-                  className="family-tree-branches"
-                  viewBox="0 0 320 440"
-                  preserveAspectRatio="none"
-                  aria-hidden="true"
-                >
-                  <path
-                    className="tree-ground"
-                    d="M57 436C83 423 104 417 123 414C137 372 143 337 142 292C141 257 137 230 131 208C117 192 99 178 79 168L91 151C117 166 139 181 154 203C153 163 154 125 159 84H176C180 126 179 164 176 204C194 180 216 163 245 147L254 163C225 181 200 201 184 225C180 255 178 280 179 307C181 353 187 391 199 422C224 429 252 432 282 432C257 445 224 446 190 439C179 437 171 434 164 431C151 438 142 441 126 439C102 436 81 440 57 436Z"
-                  />
-                  <g className="tree-limbs">
-                    <path d="M158 143C127 105 91 83 47 73" />
-                    <path d="M162 161C197 119 233 98 279 88" />
-                    <path d="M158 229C120 199 82 188 34 194" />
-                    <path d="M162 246C205 211 246 201 289 211" />
-                    <path d="M158 313C127 285 99 284 71 307" />
-                    <path d="M162 324C194 294 224 296 255 320" />
-                  </g>
-                  <path
-                    className="tree-canopy"
-                    d="M18 257C3 238 8 211 29 201C10 177 22 147 50 141C38 115 56 88 85 87C82 56 109 37 137 49C151 22 188 22 204 49C231 28 267 43 270 74C299 73 316 99 304 123C329 137 331 169 311 187C331 209 320 241 294 247C302 278 276 301 248 291C236 319 204 329 181 307C163 332 128 326 117 301C91 319 58 302 60 274C38 287 17 278 18 257Z"
-                  />
-                </svg>
-                <div className="family-tree-members">
-                  <div className="family-person member-margaret">
-                    <small className="family-relation">Grandmother</small>
-                    <span className="family-avatar apple">ML</span>
-                    <strong>Margaret</strong>
-                  </div>
-                  <div className="family-person member-robert">
-                    <small className="family-relation">Grandfather</small>
-                    <span className="family-avatar berry">RL</span>
-                    <strong>Robert</strong>
-                  </div>
-                  <div className="family-person member-sarah">
-                    <small className="family-relation">Mother</small>
-                    <span className="family-avatar peach">SL</span>
-                    <strong>Sarah</strong>
-                  </div>
-                  <div className="family-person member-daniel">
-                    <small className="family-relation">Father</small>
-                    <span className="family-avatar plum">DL</span>
-                    <strong>Daniel</strong>
-                  </div>
-                  <div className="family-person member-jamie current">
-                    <small className="family-relation">You</small>
-                    <span className="family-avatar pear">JL</span>
-                    <strong>Jamie</strong>
-                  </div>
-                  <div className="family-person member-alex">
-                    <small className="family-relation">Sibling</small>
-                    <span className="family-avatar lemon">AL</span>
-                    <strong>Alex</strong>
-                  </div>
-                </div>
-              </div>
-            </section>
-          )}
+          {page === 'Family tree' && <FamilyTree />}
 
           {page === 'Food journal' && <Journal />}
 
@@ -696,13 +629,13 @@ export default function App() {
                     ))}
                   {meals.filter((m) => mealTab === 'All meals' || m.type === mealTab).length ===
                     0 && (
-                    <div className="empty-meals">
-                      A fresh page for your {mealTab.toLowerCase()}.{' '}
-                      <button onClick={() => setModal('Log a meal')}>
-                        Log your first meal <Icon name="plus" size={14} />
-                      </button>
-                    </div>
-                  )}
+                      <div className="empty-meals">
+                        A fresh page for your {mealTab.toLowerCase()}.{' '}
+                        <button onClick={() => setModal('Log a meal')}>
+                          Log your first meal <Icon name="plus" size={14} />
+                        </button>
+                      </div>
+                    )}
                 </div>
               </section>
             )}
