@@ -154,6 +154,9 @@ function OverviewPage({
   quizQuestions,
   setQuizQuestions,
   todoChecked,
+  onAddReminder,
+  onEditReminder,
+  onDeleteReminder,
 }: {
   linkedPatient?: LinkedPartner | null
   onUnlink?: () => Promise<LinkActionResult>
@@ -163,6 +166,9 @@ function OverviewPage({
   quizQuestions: QuizQuestion[]
   setQuizQuestions: React.Dispatch<React.SetStateAction<QuizQuestion[]>>
   todoChecked: Record<string, boolean>
+  onAddReminder?: (item: { text: string; time: string; days: string }) => Promise<void>
+  onEditReminder?: (item: Reminder) => Promise<void>
+  onDeleteReminder?: (id: number) => Promise<void>
 }) {
   const [confirmUnlink, setConfirmUnlink] = useState(false)
   const [unlinking, setUnlinking] = useState(false)
@@ -201,22 +207,42 @@ function OverviewPage({
   // Editing reminder
   const [editingReminder, setEditingReminder] = useState<Reminder | null>(null)
 
-  function addReminder() {
+  async function addReminder() {
     if (!reminderText.trim()) return
-    setReminders((prev) => [
-      ...prev,
-      { id: Date.now(), text: reminderText.trim(), time: reminderTime || 'Anytime', days: reminderDays },
-    ])
+    const text = reminderText.trim()
+    const time = reminderTime || 'Anytime'
+    const days = reminderDays
     setReminderText('')
     setReminderTime('')
     setReminderDays('Daily')
     setShowReminderForm(false)
+    if (onAddReminder) {
+      await onAddReminder({ text, time, days })
+    } else {
+      setReminders((prev) => [
+        ...prev,
+        { id: Date.now(), text, time, days },
+      ])
+    }
   }
 
-  function saveEditReminder() {
+  async function saveEditReminder() {
     if (!editingReminder || !editingReminder.text.trim()) return
-    setReminders((prev) => prev.map((r) => (r.id === editingReminder.id ? editingReminder : r)))
+    const toSave = editingReminder
     setEditingReminder(null)
+    if (onEditReminder) {
+      await onEditReminder(toSave)
+    } else {
+      setReminders((prev) => prev.map((r) => (r.id === toSave.id ? toSave : r)))
+    }
+  }
+
+  async function handleDeleteReminder(id: number) {
+    if (onDeleteReminder) {
+      await onDeleteReminder(id)
+    } else {
+      setReminders((prev) => prev.filter((x) => x.id !== id))
+    }
   }
 
   function addQuizQuestion() {
@@ -434,7 +460,7 @@ function OverviewPage({
                   <button className="ct-dismiss" aria-label="Edit reminder" onClick={() => { setEditingReminder(r); setShowReminderForm(false) }}>
                     <Icon name="edit" size={13} />
                   </button>
-                  <button className="ct-dismiss" aria-label="Delete reminder" onClick={() => setReminders((prev) => prev.filter((x) => x.id !== r.id))}>
+                  <button className="ct-dismiss" aria-label="Delete reminder" onClick={() => void handleDeleteReminder(r.id)}>
                     <Icon name="trash" size={13} />
                   </button>
                 </div>
@@ -1029,6 +1055,9 @@ export default function CaretakerApp({
   reminders,
   setReminders,
   todoChecked,
+  onAddReminder,
+  onEditReminder,
+  onDeleteReminder,
   familyMembers,
   setFamilyMembers,
 }: {
@@ -1041,6 +1070,9 @@ export default function CaretakerApp({
   reminders: Reminder[]
   setReminders: React.Dispatch<React.SetStateAction<Reminder[]>>
   todoChecked: Record<string, boolean>
+  onAddReminder?: (item: { text: string; time: string; days: string }) => Promise<void>
+  onEditReminder?: (item: Reminder) => Promise<void>
+  onDeleteReminder?: (id: number) => Promise<void>
   familyMembers: FamilyMember[] | null
   setFamilyMembers: React.Dispatch<React.SetStateAction<FamilyMember[]>>
 }) {
@@ -1262,6 +1294,9 @@ export default function CaretakerApp({
                 quizQuestions={quizQuestions}
                 setQuizQuestions={setQuizQuestions}
                 todoChecked={todoChecked}
+                onAddReminder={onAddReminder}
+                onEditReminder={onEditReminder}
+                onDeleteReminder={onDeleteReminder}
               />
             ) : (
               <LinkGateCard role="caregiver" onGoToSettings={() => setPage('Settings')} />

@@ -349,7 +349,21 @@ function DailyCheckIn({ onClose, inline = false }: { onClose: () => void; inline
   )
 }
 
-export default function App({ user, linkState, onRespondLinkRequest, onSignOut, onSwitch, reminders = [], todoChecked = {}, setTodoChecked, familyMembers, setFamilyMembers }: {
+export default function App({
+  user,
+  linkState,
+  onRespondLinkRequest,
+  onSignOut,
+  onSwitch,
+  reminders = [],
+  todoChecked = {},
+  setTodoChecked,
+  onAddReminder,
+  onToggleReminder,
+  onCheckin,
+  familyMembers,
+  setFamilyMembers,
+}: {
   user?: SessionUser
   linkState?: LinkState
   onRespondLinkRequest?: (requestId: string, decision: 'accept' | 'decline') => Promise<LinkActionResult>
@@ -358,6 +372,9 @@ export default function App({ user, linkState, onRespondLinkRequest, onSignOut, 
   reminders?: import('@/app/(frontend)/page').Reminder[]
   todoChecked?: Record<string, boolean>
   setTodoChecked?: React.Dispatch<React.SetStateAction<Record<string, boolean>>>
+  onAddReminder?: (item: { text: string; time?: string; days?: string }) => Promise<void>
+  onToggleReminder?: (id: number) => Promise<void>
+  onCheckin?: () => Promise<void>
   familyMembers?: import('@/app/(frontend)/page').FamilyMember[] | null
   setFamilyMembers?: React.Dispatch<React.SetStateAction<import('@/app/(frontend)/page').FamilyMember[]>>
 }) {
@@ -507,15 +524,12 @@ export default function App({ user, linkState, onRespondLinkRequest, onSignOut, 
       setActivity(activity + Number(data.get('steps')))
       notify('A little movement, a little progress. Activity added!')
     } else if (modal === 'Add a to-do') {
-      setHabits([
-        ...habits,
-        {
-          title: String(data.get('name')),
-          detail: 'Added by you',
-          icon: 'heart',
-          done: false,
-        },
-      ])
+      const taskName = String(data.get('name') || '').trim()
+      if (taskName) {
+        if (onAddReminder) {
+          void onAddReminder({ text: taskName, time: 'Anytime', days: 'Daily' })
+        }
+      }
       notify('Your new to-do is ready for today.')
     } else {
       setSettingReminders(data.get('reminders') === 'on')
@@ -970,7 +984,11 @@ export default function App({ user, linkState, onRespondLinkRequest, onSignOut, 
                           inline
                           onClose={() => {
                             setCheckInDone(true)
-                            setTodoChecked?.((prev) => ({ ...prev, checkin: true }))
+                            if (onCheckin) {
+                              void onCheckin()
+                            } else {
+                              setTodoChecked?.((prev) => ({ ...prev, checkin: true }))
+                            }
                           }}
                         />
                       </div>
@@ -982,12 +1000,16 @@ export default function App({ user, linkState, onRespondLinkRequest, onSignOut, 
                           <button
                             className="habit-checkbox"
                             aria-label={todoChecked[String(r.id)] ? 'Mark incomplete' : 'Mark complete'}
-                            onClick={() =>
-                              setTodoChecked?.((prev) => ({
-                                ...prev,
-                                [String(r.id)]: !prev[String(r.id)],
-                              }))
-                            }
+                            onClick={() => {
+                              if (onToggleReminder) {
+                                void onToggleReminder(r.id)
+                              } else {
+                                setTodoChecked?.((prev) => ({
+                                  ...prev,
+                                  [String(r.id)]: !prev[String(r.id)],
+                                }))
+                              }
+                            }}
                           >
                             {todoChecked[String(r.id)] && <Icon name="check" size={12} />}
                           </button>
@@ -1153,7 +1175,17 @@ export default function App({ user, linkState, onRespondLinkRequest, onSignOut, 
             {gameNames.includes(modal as GameName) ? (
               null
             ) : modal === 'Daily check-in' ? (
-              <DailyCheckIn onClose={() => { setCheckInDone(true); setTodoChecked?.((prev) => ({ ...prev, checkin: true })); setModal(null) }} />
+              <DailyCheckIn
+                onClose={() => {
+                  setCheckInDone(true)
+                  if (onCheckin) {
+                    void onCheckin()
+                  } else {
+                    setTodoChecked?.((prev) => ({ ...prev, checkin: true }))
+                  }
+                  setModal(null)
+                }}
+              />
             ) : modal === 'A little help' ? (
               <>
                 <p>
