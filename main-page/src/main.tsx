@@ -1,11 +1,21 @@
-import React from "react";
+import React, { useState } from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
+import CaretakerApp from "./Caretaker";
 import "./index.css";
+
+function Root() {
+  const [role, setRole] = useState<"patient" | "caretaker">("patient");
+  return role === "caretaker" ? (
+    <CaretakerApp onSwitch={() => setRole("patient")} />
+  ) : (
+    <App onSwitchToCaretaker={() => setRole("caretaker")} />
+  );
+}
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <App />
+    <Root />
   </React.StrictMode>,
 );
 

@@ -3,6 +3,8 @@ import type { CSSProperties, FormEvent } from "react";
 import { Game, GameCards, gameNames } from "./Games";
 import type { GameName } from "./Games";
 
+type AppPage = "Overview" | "Family tree" | "Food journal" | "Daily habits" | GameName;
+
 function Icon({ name, size = 20, ...props }: { name: string; size?: number; className?: string }) {
   const paths: Record<string, React.ReactNode> = {
     grid: (
@@ -95,6 +97,14 @@ function Icon({ name, size = 20, ...props }: { name: string; size?: number; clas
       </>
     ),
     heart: <path d="M20 5c-3-3-7-1-8 1-1-2-5-4-8-1s-1 7 8 14c9-7 11-11 8-14Z" />,
+    users: (
+      <>
+        <circle cx="8" cy="8" r="4" />
+        <path d="M2 20c0-4 2.7-7 6-7s6 3 6 7" />
+        <path d="M17 11c1.7 0 3 1.3 3 3s-1.3 3-3 3" />
+        <path d="M22 20c0-2.5-1.5-4.5-3-5" />
+      </>
+    ),
   };
   return (
     <svg
@@ -129,9 +139,9 @@ const initialHabits = [
   },
 ];
 
-export default function App() {
+export default function App({ onSwitchToCaretaker }: { onSwitchToCaretaker?: () => void }) {
   const screenRef = useRef<HTMLElement>(null);
-  const [page, setPage] = useState("Overview");
+  const [page, setPage] = useState<AppPage>("Overview");
   const [habits, setHabits] = useState(initialHabits);
   const [modal, setModal] = useState<string | null>(null);
   const [reminders, setReminders] = useState(true);
@@ -247,9 +257,9 @@ export default function App() {
         <div className="workspace-label">YOUR WELLNESS SPACE</div>
         <nav aria-label="Main navigation">
           {[
-            { name: "Overview", label: "Home", icon: "grid" },
-            { name: "Family tree", label: "Family tree", icon: "family" },
-            { name: "Food journal", label: "Journal", icon: "journal" },
+            { name: "Overview" as AppPage, label: "Home", icon: "grid" },
+            { name: "Family tree" as AppPage, label: "Family tree", icon: "family" },
+            { name: "Food journal" as AppPage, label: "Journal", icon: "journal" },
           ].map((item) => (
             <button
               className={`nav-item ${page === item.name ? "active" : ""}`}
@@ -262,6 +272,16 @@ export default function App() {
               {page === item.name && <span className="nav-dot" />}
             </button>
           ))}
+          {onSwitchToCaretaker && (
+            <button
+              className="nav-item nav-item-switch"
+              onClick={onSwitchToCaretaker}
+              title="Switch to caretaker view"
+            >
+              <Icon name="users" />
+              Caretaker
+            </button>
+          )}
         </nav>
         <div className="sidebar-bottom">
           <div className="little-card">
@@ -303,6 +323,50 @@ export default function App() {
 
       <main ref={screenRef}>
         <div className="page-content">
+
+          {/* ── Game full-page view ── */}
+          {(gameNames as readonly string[]).includes(page) && (
+            <>
+              <section className="page-heading game-page-heading">
+                <button
+                  className="back-button"
+                  onClick={() => setPage("Overview")}
+                  aria-label="Back to Overview"
+                >
+                  <Icon name="arrow" size={18} className="back-arrow-icon" />
+                </button>
+                <div>
+                  <div className="eyebrow">GAMES</div>
+                  <h1>
+                    {page}
+                    <span className="heading-spark">
+                      <Icon name="leaf" size={28} />
+                    </span>
+                  </h1>
+                </div>
+                <button
+                  className="date-button"
+                  aria-label="Notifications"
+                  onClick={() => notify("You're all caught up. No new notifications.")}
+                >
+                  <Icon name="bell" size={20} />
+                </button>
+              </section>
+              <div className="game-full-page">
+                <Game key={page} name={page as GameName} />
+              </div>
+              <footer className="page-footer">
+                <span>
+                  <Icon name="leaf" size={14} /> Made for your kind of balance.
+                </span>
+                <span>One day at a time. One bloom at a time.</span>
+              </footer>
+            </>
+          )}
+
+          {/* ── Normal pages ── */}
+          {!(gameNames as readonly string[]).includes(page) && (
+            <>
           <section className="page-heading">
             <div>
               <div className="eyebrow">{displayDate.toUpperCase()}</div>
@@ -311,7 +375,9 @@ export default function App() {
                   ? "Hi, Jamie!"
                   : page === "Family tree"
                     ? "Your family tree."
-                    : "Nourish your everyday."}
+                    : page === "Food journal"
+                      ? "Nourish your everyday."
+                      : "Feel-good habits."}
                 <span className="heading-spark">
                   <Icon name="cloud" size={28} />
                 </span>
@@ -321,7 +387,9 @@ export default function App() {
                   ? "It’s chilly today, make sure to stay warm."
                   : page === "Family tree"
                     ? "The people and stories that make you, you."
-                    : "A mindful look at what’s fueling your day."}
+                    : page === "Food journal"
+                      ? "A mindful look at what’s fueling your day."
+                      : "Small rituals, made for you."}
               </p>
             </div>
             <button
@@ -398,7 +466,7 @@ export default function App() {
                     <button
                       className="plan-arrow-button"
                       aria-label="Continue with Counting boxes"
-                      onClick={() => setModal("Counting boxes")}
+                      onClick={() => setPage("Counting boxes")}
                     >
                       <Icon name="arrow" size={23} />
                     </button>
@@ -409,7 +477,7 @@ export default function App() {
                 </section>
               </div>
 
-              <GameCards onPlay={(game) => setModal(game)} />
+              <GameCards onPlay={(game) => setPage(game)} />
             </>
           )}
 
@@ -683,6 +751,8 @@ export default function App() {
             </span>
             <span>One day at a time. One bloom at a time.</span>
           </footer>
+            </>
+          )}
         </div>
       </main>
       {toast && (
@@ -699,7 +769,7 @@ export default function App() {
       {modal && (
         <div className="modal-backdrop" onClick={() => setModal(null)}>
           <section
-            className={`modal ${gameNames.includes(modal as GameName) ? "game-modal" : ""}`}
+            className="modal"
             role="dialog"
             aria-modal="true"
             aria-labelledby="modal-title"
@@ -716,9 +786,7 @@ export default function App() {
               <Icon name="leaf" size={25} />
             </span>
             <h2 id="modal-title">{modal}</h2>
-            {gameNames.includes(modal as GameName) ? (
-              <Game key={modal} name={modal as GameName} />
-            ) : modal === "A little help" ? (
+            {modal === "A little help" ? (
               <>
                 <p>
                   Bloom is your little space for everyday wellbeing. Add water with the + button,
