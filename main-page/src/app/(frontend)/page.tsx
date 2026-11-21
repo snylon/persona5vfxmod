@@ -1,59 +1,19 @@
-'use client'
+import { redirect } from 'next/navigation'
+import AppShellClient from '@/components/AppShellClient'
+import { getLinkStateForUser, getSessionUser } from '@/lib/auth-store'
 
-import { useState } from 'react'
-import ReleafApp from '@/components/ReleafApp'
-import CaretakerApp from '@/components/CaretakerApp'
+export type { FamilyMember, Reminder } from '@/components/AppShellClient'
 
-export type Reminder = { id: number; text: string; time: string; days: string }
+export const dynamic = 'force-dynamic'
 
-// FamilyMember type mirrored here so page.tsx can hold the state
-export type FamilyMember = {
-  id: string
-  name: string
-  role: string
-  phone: string
-  photoDataUrl?: string
-  x: number
-  y: number
-  variant: 'apple' | 'berry' | 'peach' | 'plum' | 'pear' | 'lemon'
-  isCurrent?: boolean
-}
+export default async function HomePage() {
+  const user = await getSessionUser()
 
-const initialReminders: Reminder[] = [
-  { id: 1, text: 'Afternoon walk', time: '3:00 PM', days: 'Daily' },
-  { id: 2, text: 'Evening hydration check', time: '7:30 PM', days: 'Daily' },
-]
-
-export default function HomePage() {
-  const [view, setView] = useState<'patient' | 'caretaker'>('patient')
-  const [reminders, setReminders] = useState<Reminder[]>(initialReminders)
-
-  // Shared todo checked state: 'checkin' | reminder id (as string) → boolean
-  const [todoChecked, setTodoChecked] = useState<Record<string, boolean>>({})
-
-  // Shared family tree members (null = not yet loaded from localStorage)
-  const [familyMembers, setFamilyMembers] = useState<FamilyMember[] | null>(null)
-
-  if (view === 'caretaker') {
-    return (
-      <CaretakerApp
-        onSwitch={() => setView('patient')}
-        reminders={reminders}
-        setReminders={setReminders}
-        todoChecked={todoChecked}
-        familyMembers={familyMembers}
-        setFamilyMembers={setFamilyMembers as React.Dispatch<React.SetStateAction<FamilyMember[]>>}
-      />
-    )
+  if (!user) {
+    redirect('/sign-in')
   }
-  return (
-    <ReleafApp
-      onSwitch={() => setView('caretaker')}
-      reminders={reminders}
-      todoChecked={todoChecked}
-      setTodoChecked={setTodoChecked}
-      familyMembers={familyMembers}
-      setFamilyMembers={setFamilyMembers as React.Dispatch<React.SetStateAction<FamilyMember[]>>}
-    />
-  )
+
+  const initialLinkState = await getLinkStateForUser(user.id)
+
+  return <AppShellClient user={user} initialLinkState={initialLinkState} />
 }

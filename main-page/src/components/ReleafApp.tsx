@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
@@ -6,6 +6,9 @@ import { Game, GameCards, gameNames } from './Games'
 import type { GameName } from './Games'
 import FamilyTree from './FamilyTree'
 import Journal from './Journal'
+import LinkGateCard from './LinkGateCard'
+import type { LinkActionResult } from '@/app/(frontend)/link-actions'
+import type { LinkState, SessionUser } from '@/lib/auth-store'
 
 function Icon({ name, size = 20, ...props }: { name: string; size?: number; className?: string }) {
   const paths: Record<string, React.ReactNode> = {
@@ -113,6 +116,13 @@ function Icon({ name, size = 20, ...props }: { name: string; size?: number; clas
       </>
     ),
     heart: <path d="M20 5c-3-3-7-1-8 1-1-2-5-4-8-1s-1 7 8 14c9-7 11-11 8-14Z" />,
+    logout: (
+      <>
+        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+        <polyline points="16 17 21 12 16 7" />
+        <line x1="21" y1="12" x2="9" y2="12" />
+      </>
+    ),
   }
   return (
     <svg
@@ -211,7 +221,7 @@ function pickQuestions(count: number, exclude: string[] = []): string[] {
 function Sparkles() {
   return (
     <div className="checkin-sparkles" aria-hidden="true">
-      {['✦','✧','✦','✧','✦','✦','✧','✦'].map((s, i) => (
+      {['✦', '✧', '✦', '✧', '✦', '✦', '✧', '✦'].map((s, i) => (
         <span key={i} className={`spark spark-${i}`}>{s}</span>
       ))}
     </div>
@@ -335,7 +345,11 @@ function DailyCheckIn({ onClose, inline = false }: { onClose: () => void; inline
   )
 }
 
-export default function App({ onSwitch, reminders = [], todoChecked = {}, setTodoChecked, familyMembers, setFamilyMembers }: {
+export default function App({ user, linkState, onRespondLinkRequest, onSignOut, onSwitch, reminders = [], todoChecked = {}, setTodoChecked, familyMembers, setFamilyMembers }: {
+  user?: SessionUser
+  linkState?: LinkState
+  onRespondLinkRequest?: (requestId: string, decision: 'accept' | 'decline') => Promise<LinkActionResult>
+  onSignOut?: () => Promise<void>
   onSwitch?: () => void
   reminders?: import('@/app/(frontend)/page').Reminder[]
   todoChecked?: Record<string, boolean>
@@ -344,6 +358,19 @@ export default function App({ onSwitch, reminders = [], todoChecked = {}, setTod
   setFamilyMembers?: React.Dispatch<React.SetStateAction<import('@/app/(frontend)/page').FamilyMember[]>>
 }) {
   const screenRef = useRef<HTMLElement>(null)
+  const displayName = user?.name?.trim() || 'Jamie Lewis'
+  const firstName = displayName.split(/\s+/)[0] || 'Jamie'
+  const initials = displayName
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? '')
+    .join('') || 'JL'
+  const isLinked = Boolean(linkState?.linkedPartner)
+  const patientCode = linkState?.patientCode || user?.patientCode || ''
+  const incomingRequests = linkState?.incomingRequests ?? []
+  const [notificationsOpen, setNotificationsOpen] = useState(false)
+  const [respondingId, setRespondingId] = useState<string | null>(null)
   const [page, setPage] = useState('Overview')
   const [habits, setHabits] = useState(initialHabits)
   const [modal, setModal] = useState<string | null>(null)
@@ -410,6 +437,32 @@ export default function App({ onSwitch, reminders = [], todoChecked = {}, setTod
   function notify(message: string) {
     setToast(message)
     window.setTimeout(() => setToast(''), 3500)
+  }
+  function copyPatientCode() {
+    if (!patientCode) return
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(patientCode).then(
+        () => notify(`Copied ID ${patientCode}`),
+        () => notify(`Your Patient ID is ${patientCode}`),
+      )
+    } else {
+      notify(`Your Patient ID is ${patientCode}`)
+    }
+  }
+  async function handleRespondInvite(requestId: string, decision: 'accept' | 'decline') {
+    if (!onRespondLinkRequest) return
+    setRespondingId(requestId)
+    try {
+      const result = await onRespondLinkRequest(requestId, decision)
+      if (!result.ok) {
+        notify(result.error || 'Could not update invite.')
+      } else {
+        notify(result.message || (decision === 'accept' ? 'Linked!' : 'Invite declined.'))
+        if (decision === 'accept') setNotificationsOpen(false)
+      }
+    } finally {
+      setRespondingId(null)
+    }
   }
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -498,7 +551,7 @@ export default function App({ onSwitch, reminders = [], todoChecked = {}, setTod
               <br />A healthier you.
             </h3>
             <p>
-            Progress isn\u2019t always a straight line.
+              Progress isn\u2019t always a straight line.
               <br />
               Keep growing at your own pace.
             </p>
@@ -512,10 +565,21 @@ export default function App({ onSwitch, reminders = [], todoChecked = {}, setTod
             Help & support
           </button>
           <button className="profile" onClick={() => setModal('Settings')}>
-            <span className="avatar">JL</span>
+            <span className="avatar">{initials}</span>
             <span>
-              <strong>Jamie Lewis</strong>
-              <small>Personal account</small>
+              <strong>
+                {displayName}
+                {patientCode && (
+                  <span className="ml-1.5 inline-block rounded-md bg-[#eaf1e3] px-1.5 py-0.5 text-[9px] font-bold tracking-[0.4px] text-[#4e6b3f]">
+                    {patientCode}
+                  </span>
+                )}
+              </strong>
+              <small>
+                {linkState?.linkedPartner
+                  ? `Linked with ${linkState.linkedPartner.name}`
+                  : 'Patient account'}
+              </small>
             </span>
             <Icon name="down" size={17} />
           </button>
@@ -529,22 +593,36 @@ export default function App({ onSwitch, reminders = [], todoChecked = {}, setTod
               {page !== 'Family tree' && page !== 'Food journal' && (
                 <div className="eyebrow">{todayDisplayDate.toUpperCase()}</div>
               )}
-              <h1>
-                {page === 'Overview'
-                  ? 'Hi, Jamie!'
-                  : page === 'Games'
-                    ? 'Your games.'
-                    : page === 'Family tree'
-                      ? 'Your family tree.'
-                      : page === 'Food journal'
-                        ? ''
-                        : 'Your life, one page at a time.'}
-                {page === 'Overview' && (
-                  <span className="heading-spark" aria-hidden="true">
-                    <Icon name="cloud" size={28} />
-                  </span>
+              <div className="flex flex-wrap items-center gap-2">
+                <h1>
+                  {page === 'Overview'
+                    ? `Hi, ${firstName}!`
+                    : page === 'Games'
+                      ? 'Your games.'
+                      : page === 'Family tree'
+                        ? 'Your family tree.'
+                        : page === 'Food journal'
+                          ? ''
+                          : 'Your life, one page at a time.'}
+                  {page === 'Overview' && (
+                    <span className="heading-spark" aria-hidden="true">
+                      <Icon name="cloud" size={28} />
+                    </span>
+                  )}
+                </h1>
+                {page === 'Overview' && patientCode && (
+                  <button
+                    type="button"
+                    onClick={copyPatientCode}
+                    title="Copy your Patient ID"
+                    aria-label={`Patient ID ${patientCode}. Click to copy.`}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-[#d6e2c8] bg-[#eef5e6] px-2.5 py-1 text-[10px] font-bold tracking-[0.5px] text-[#46633a] transition hover:bg-[#e3edd8]"
+                  >
+                    <span className="text-[#788f67]">ID</span>
+                    <span>{patientCode}</span>
+                  </button>
                 )}
-              </h1>
+              </div>
               {page !== 'Family tree' && page !== 'Food journal' && (
                 <p>
                   {page === 'Overview'
@@ -555,288 +633,443 @@ export default function App({ onSwitch, reminders = [], todoChecked = {}, setTod
                 </p>
               )}
             </div>
-            {onSwitch && (
-              <div className="ct-header-right">
-                <button className="ct-switch-btn" onClick={onSwitch} title="Switch to caretaker view">
-                  <Icon name="users" size={16} />
-                </button>
+            {(onSignOut || onSwitch || onRespondLinkRequest) && (
+              <div className="ct-header-right relative">
+                {onRespondLinkRequest && (
+                  <div className="relative">
+                    <button
+                      type="button"
+                      className="ct-switch-btn relative"
+                      onClick={() => setNotificationsOpen((open) => !open)}
+                      title="Notifications"
+                      aria-label={
+                        incomingRequests.length > 0
+                          ? `Notifications (${incomingRequests.length} link invite)`
+                          : 'Notifications'
+                      }
+                    >
+                      <Icon name="bell" size={16} />
+                      {incomingRequests.length > 0 && (
+                        <span className="absolute -right-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-[#d96c75] px-1 text-[9px] font-bold text-white shadow-xs">
+                          {incomingRequests.length}
+                        </span>
+                      )}
+                    </button>
+
+                    {notificationsOpen && (
+                      <div className="absolute right-0 top-11 z-40 w-[268px] rounded-[18px] border border-[#dfe6d6] bg-white p-4 shadow-[0_14px_40px_rgba(48,61,53,0.16)]">
+                        <div className="flex items-center justify-between border-b border-[#edf1e7] pb-2.5">
+                          <strong className="font-['Manrope'] text-[12px] font-bold text-[#3d513c]">
+                            Notifications
+                          </strong>
+                          <button
+                            type="button"
+                            onClick={() => setNotificationsOpen(false)}
+                            aria-label="Close notifications"
+                            className="text-[#8a9483] hover:text-[#4e6149]"
+                          >
+                            <Icon name="close" size={14} />
+                          </button>
+                        </div>
+
+                        {incomingRequests.length > 0 ? (
+                          <div className="mt-3 space-y-2.5">
+                            {incomingRequests.map((req) => (
+                              <div
+                                key={req.id}
+                                className="rounded-[13px] border border-[#dce6d0] bg-[#f4f8ee] p-3"
+                              >
+                                <strong className="block text-[12px] font-semibold text-[#3c523a]">
+                                  Caregiver link invite
+                                </strong>
+                                <p className="mt-1 text-[11px] leading-snug text-[#6c7b66]">
+                                  <strong>{req.caregiverName}</strong> wants to link up with you as
+                                  your caregiver.
+                                </p>
+                                <div className="mt-2.5 flex gap-2">
+                                  <button
+                                    type="button"
+                                    disabled={respondingId === req.id}
+                                    onClick={() => void handleRespondInvite(req.id, 'accept')}
+                                    className="flex-1 rounded-[10px] bg-[#5f7d4d] py-1.5 text-[11px] font-semibold text-white disabled:opacity-60"
+                                  >
+                                    {respondingId === req.id ? 'Linking…' : 'Accept'}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    disabled={respondingId === req.id}
+                                    onClick={() => void handleRespondInvite(req.id, 'decline')}
+                                    className="rounded-[10px] border border-[#dce2d5] bg-white px-3 py-1.5 text-[11px] font-semibold text-[#74806d] disabled:opacity-60"
+                                  >
+                                    Decline
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="mt-3 text-[11px] text-[#889481]">
+                            {linkState?.linkedPartner
+                              ? `You\u2019re linked with ${linkState.linkedPartner.name}. No new notifications.`
+                              : 'No new notifications yet.'}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {onSignOut ? (
+                  <form action={onSignOut}>
+                    <button
+                      type="submit"
+                      className="ct-switch-btn"
+                      title="Sign out"
+                      aria-label="Sign out"
+                    >
+                      <Icon name="logout" size={16} />
+                    </button>
+                  </form>
+                ) : onSwitch ? (
+                  <button className="ct-switch-btn" onClick={onSwitch} title="Switch to caretaker view">
+                    <Icon name="users" size={16} />
+                  </button>
+                ) : null}
               </div>
             )}
           </section>
 
-          {(page === 'Overview' || page === 'My progress') && (
-            <>
-              <div className="intro-grid">
-                <section className="welcome-card">
-                  <div className="welcome-copy">
-                    <span className="pill">
-                      <span />
-                      YOUR DAILY BLOOM
+          {!isLinked && incomingRequests.length > 0 && (
+            <section
+              className="mb-4 rounded-[20px] border border-[#cfe0be] bg-[#eef5e6] p-4 shadow-xs"
+              role="region"
+              aria-label="Caregiver link invite notification"
+            >
+              {incomingRequests.map((req) => (
+                <div key={req.id} className="space-y-3">
+                  <div className="flex items-start gap-3">
+                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[12px] bg-white text-[#5d7b49] shadow-2xs">
+                      <Icon name="bell" size={18} />
                     </span>
-                    <h2>
-                      A little balance.
-                      <br />A lot of possibility.
-                    </h2>
-                    <p>
-                      You\u2019re showing up for yourself.
-                      <br />
-                      And that\u2019s a beautiful place to start.
-                    </p>
-                    <button onClick={() => setPage('Daily habits')}>
-                      Let\u2019s keep growing <Icon name="arrow" size={17} />
-                    </button>
-                  </div>
-                  <div className="garden" aria-hidden="true">
-                    <div className="garden-ring ring-one" />
-                    <div className="garden-ring ring-two" />
-                    <div className="garden-sun" />
-                    <svg className="plant" viewBox="0 0 260 290" fill="none">
-                      <path d="M128 271c-4-63 16-117 15-205" stroke="#497056" strokeWidth="4" />
-                      <path d="M142 104C90 110 69 62 83 33c46-2 67 30 59 71Z" fill="#759B69" />
-                      <path d="M141 143c-1-55 35-87 79-77 0 44-33 83-79 77Z" fill="#91B5A1" />
-                      <path d="M135 185C74 184 46 147 54 110c48-1 83 28 81 75Z" fill="#B1C896" />
-                      <path d="M133 215c1-48 39-76 81-63-6 44-35 69-81 63Z" fill="#64866D" />
-                      <path
-                        d="M142 104 94 49m47 95 61-62m-68 103-63-59m63 88 62-48"
-                        stroke="#50775B"
-                        strokeWidth="1.5"
-                        opacity=".5"
-                      />
-                      <path d="M95 236h73l-10 49h-54l-9-49Z" fill="#DDE7CB" />
-                      <path d="M92 236h79" stroke="#C8D5B7" strokeWidth="7" strokeLinecap="round" />
-                    </svg>
-                    <span className="garden-spark s1">+</span>
-                    <span className="garden-spark s2">+</span>
-                    <span className="garden-small-circle" />
-                  </div>
-                </section>
-              </div>
-
-            </>
-          )}
-
-          {page === 'Games' && <GameCards onPlay={(game) => setActiveGame(game)} />}
-
-          {page === 'Family tree' && (
-            <FamilyTree
-              members={familyMembers ?? undefined}
-              setMembers={setFamilyMembers}
-            />
-          )}
-
-          {page === 'Food journal' && <Journal />}
-
-          <div
-            className={`lower-grid ${page === 'My progress' || page === 'Daily habits' || page === 'Food journal' ? 'single-view' : ''}`}
-          >
-            {(page === 'Overview' || page === 'My progress') && (
-              <section className="panel weekly-panel">
-                <div className="section-top">
-                  <div>
-                    <h3>Your week in balance</h3>
-                    <p>A little consistency goes a long way.</p>
-                  </div>
-                  <select
-                    aria-label="Chart period"
-                    value={period}
-                    onChange={(e) => setPeriod(e.target.value)}
-                  >
-                    <option>This week</option>
-                    <option>Last week</option>
-                  </select>
-                </div>
-                <div className="chart-legend">
-                  <span>
-                    <i />
-                    Movement
-                  </span>
-                  <span>
-                    <i />
-                    Hydration
-                  </span>
-                </div>
-                <div className="chart">
-                  <div className="chart-labels">
-                    <span>100%</span>
-                    <span>75%</span>
-                    <span>50%</span>
-                    <span>25%</span>
-                  </div>
-                  <div className="chart-plot">
-                    <div className="grid-lines">
-                      <i />
-                      <i />
-                      <i />
-                      <i />
-                    </div>
-                    {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day, i) => (
-                      <div className={`chart-day ${i === 0 ? 'today' : ''}`} key={day}>
-                        <div className="bar-pair">
-                          <span
-                            style={{
-                              height: `${(period === 'This week' ? [66, 80, 61, 90, 71, 96, 45] : [45, 56, 75, 60, 83, 76, 67])[i]}%`,
-                            }}
-                          />
-                          <span style={{ height: `${[53, 65, 73, 64, 86, 79, 58][i]}%` }} />
-                        </div>
-                        <small>{day}</small>
-                        {i === 0 && <b />}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <div className="chart-note">
-                  <span className="trend-icon">
-                    <Icon name="chart" size={16} />
-                  </span>
-                  <span>
-                    <strong>12% more balanced</strong> than last week. Look at you grow.
-                  </span>
-                </div>
-              </section>
-            )}
-
-            {(page === 'Overview' || page === 'Daily habits') && (
-              <section className="panel habits-panel">
-                <div className="section-top">
-                  <div>
-                    <h3>To-do list</h3>
-                    <p></p>
-                  </div>
-                  <button
-                    className="text-button"
-                    onClick={() => setModal('Add a to-do')}
-                  >
-                    Add to-do
-                    <Icon name="plus" size={16} />
-                  </button>
-                </div>
-                <div className="habit-list">
-                  <div className="habit-row habit-row-checkin">
-                    <DailyCheckIn
-                      inline
-                      onClose={() => {
-                        setCheckInDone(true)
-                        setTodoChecked?.((prev) => ({ ...prev, checkin: true }))
-                      }}
-                    />
-                  </div>
-                  {reminders.map((r) => (
-                    <div
-                      className={`habit-row habit-row-reminder${todoChecked[String(r.id)] ? ' done' : ''}`}
-                      key={r.id}
-                    >
-                      <button
-                        className="habit-checkbox"
-                        aria-label={todoChecked[String(r.id)] ? 'Mark incomplete' : 'Mark complete'}
-                        onClick={() =>
-                          setTodoChecked?.((prev) => ({
-                            ...prev,
-                            [String(r.id)]: !prev[String(r.id)],
-                          }))
-                        }
-                      >
-                        {todoChecked[String(r.id)] && <Icon name="check" size={12} />}
-                      </button>
-                      <span className="habit-icon habit-icon-0">
-                        <Icon name="bell" size={20} />
+                    <div className="min-w-0 flex-1">
+                      <span className="block text-[9px] font-bold uppercase tracking-[1px] text-[#6d855c]">
+                        Caregiver invite
                       </span>
-                      <span className="habit-text">
-                        <strong>{r.text}</strong>
-                        <small>{r.time} &middot; {r.days}</small>
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </section>
-            )}
-
-            {page === 'Overview' && (
-              <section className="panel food-panel">
-                <div className="section-top">
-                  <div className="food-title">
-                    <span className="food-title-icon">
-                      <Icon name="fork" size={20} />
-                    </span>
-                    <div>
-                      <h3>A little nourishment</h3>
-                      <p>Good food. Good energy. Good you.</p>
+                      <strong className="mt-0.5 block font-['Manrope'] text-[14px] font-bold text-[#384d36]">
+                        {req.caregiverName} wants to link up with you
+                      </strong>
+                      <p className="mt-0.5 text-[11px] leading-snug text-[#6a7a63]">
+                        Accept this invite to unlock all features together.
+                      </p>
                     </div>
                   </div>
-                  <button className="log-meal-button" onClick={() => setModal('Log a meal')}>
-                    <Icon name="plus" size={16} />
-                    Log a meal
-                  </button>
-                </div>
-                <div className="food-tabs">
-                  {['All meals', 'Breakfast', 'Lunch', 'Dinner', 'Snacks'].map((tab) => (
+                  <div className="flex gap-2">
                     <button
-                      key={tab}
-                      className={mealTab === tab ? 'selected' : ''}
-                      onClick={() => setMealTab(tab)}
+                      type="button"
+                      disabled={respondingId === req.id}
+                      onClick={() => void handleRespondInvite(req.id, 'accept')}
+                      className="flex min-h-10 flex-1 items-center justify-center rounded-[12px] bg-[#5f7d4d] px-4 text-[12px] font-semibold text-white hover:bg-[#526e41] disabled:opacity-60"
                     >
-                      {tab}
+                      {respondingId === req.id ? 'Linking…' : 'Accept invite'}
                     </button>
-                  ))}
-                </div>
-                <div className="meal-table">
-                  <div className="table-head">
-                    <span>MEAL</span>
-                    <span>CALORIES</span>
-                    <span>PROTEIN</span>
-                    <span>CARBS</span>
-                    <span>FATS</span>
-                    <span />
+                    <button
+                      type="button"
+                      disabled={respondingId === req.id}
+                      onClick={() => void handleRespondInvite(req.id, 'decline')}
+                      className="flex min-h-10 items-center justify-center rounded-[12px] border border-[#d6e0ca] bg-white px-4 text-[12px] font-semibold text-[#6f7c68] disabled:opacity-60"
+                    >
+                      Decline
+                    </button>
                   </div>
-                  {meals
-                    .filter((m) => mealTab === 'All meals' || m.type === mealTab)
-                    .map((meal, i) => (
-                      <div className="meal-row" key={i}>
-                        <div className="meal-info">
-                          <div className={`meal-art meal-art-${i % 2}`}>
-                            <Icon name={i % 2 ? 'leaf' : 'sun'} size={26} />
-                          </div>
-                          <div>
-                            <strong>{meal.name}</strong>
-                            <small>
-                              {meal.type}
-                              <span>&middot;</span>
-                              {meal.time}
-                            </small>
-                          </div>
-                        </div>
-                        <span>
-                          {meal.calories}
-                          <small> kcal</small>
+                </div>
+              ))}
+            </section>
+          )}
+
+          {!isLinked ? (
+            <LinkGateCard
+              role="patient"
+              patientCode={patientCode}
+              hasIncomingInvite={incomingRequests.length > 0}
+              onCopyCode={copyPatientCode}
+            />
+          ) : (
+            <>
+              {(page === 'Overview' || page === 'My progress') && (
+                <>
+                  <div className="intro-grid">
+                    <section className="welcome-card">
+                      <div className="welcome-copy">
+                        <span className="pill">
+                          <span />
+                          YOUR DAILY BLOOM
                         </span>
-                        <span>
-                          {meal.protein}
-                          <small> g</small>
-                        </span>
-                        <span>
-                          {meal.carbs}
-                          <small> g</small>
-                        </span>
-                        <span>
-                          {meal.fats}
-                          <small> g</small>
-                        </span>
-                        <Icon name="check" size={17} />
-                      </div>
-                    ))}
-                  {meals.filter((m) => mealTab === 'All meals' || m.type === mealTab).length ===
-                    0 && (
-                      <div className="empty-meals">
-                        A fresh page for your {mealTab.toLowerCase()}.{' '}
-                        <button onClick={() => setModal('Log a meal')}>
-                          Log your first meal <Icon name="plus" size={14} />
+                        <h2>
+                          A little balance.
+                          <br />A lot of possibility.
+                        </h2>
+                        <p>
+                          You\u2019re showing up for yourself.
+                          <br />
+                          And that\u2019s a beautiful place to start.
+                        </p>
+                        <button onClick={() => setPage('Daily habits')}>
+                          Let\u2019s keep growing <Icon name="arrow" size={17} />
                         </button>
                       </div>
-                    )}
-                </div>
-              </section>
-            )}
-          </div>
+                      <div className="garden" aria-hidden="true">
+                        <div className="garden-ring ring-one" />
+                        <div className="garden-ring ring-two" />
+                        <div className="garden-sun" />
+                        <svg className="plant" viewBox="0 0 260 290" fill="none">
+                          <path d="M128 271c-4-63 16-117 15-205" stroke="#497056" strokeWidth="4" />
+                          <path d="M142 104C90 110 69 62 83 33c46-2 67 30 59 71Z" fill="#759B69" />
+                          <path d="M141 143c-1-55 35-87 79-77 0 44-33 83-79 77Z" fill="#91B5A1" />
+                          <path d="M135 185C74 184 46 147 54 110c48-1 83 28 81 75Z" fill="#B1C896" />
+                          <path d="M133 215c1-48 39-76 81-63-6 44-35 69-81 63Z" fill="#64866D" />
+                          <path
+                            d="M142 104 94 49m47 95 61-62m-68 103-63-59m63 88 62-48"
+                            stroke="#50775B"
+                            strokeWidth="1.5"
+                            opacity=".5"
+                          />
+                          <path d="M95 236h73l-10 49h-54l-9-49Z" fill="#DDE7CB" />
+                          <path d="M92 236h79" stroke="#C8D5B7" strokeWidth="7" strokeLinecap="round" />
+                        </svg>
+                        <span className="garden-spark s1">+</span>
+                        <span className="garden-spark s2">+</span>
+                        <span className="garden-small-circle" />
+                      </div>
+                    </section>
+                  </div>
+
+                </>
+              )}
+
+              {page === 'Games' && <GameCards onPlay={(game) => setActiveGame(game)} />}
+
+              {page === 'Family tree' && (
+                <FamilyTree
+                  members={familyMembers ?? undefined}
+                  setMembers={setFamilyMembers}
+                />
+              )}
+
+              {page === 'Food journal' && <Journal />}
+
+              <div
+                className={`lower-grid ${page === 'My progress' || page === 'Daily habits' || page === 'Food journal' ? 'single-view' : ''}`}
+              >
+                {(page === 'Overview' || page === 'My progress') && (
+                  <section className="panel weekly-panel">
+                    <div className="section-top">
+                      <div>
+                        <h3>Your week in balance</h3>
+                        <p>A little consistency goes a long way.</p>
+                      </div>
+                      <select
+                        aria-label="Chart period"
+                        value={period}
+                        onChange={(e) => setPeriod(e.target.value)}
+                      >
+                        <option>This week</option>
+                        <option>Last week</option>
+                      </select>
+                    </div>
+                    <div className="chart-legend">
+                      <span>
+                        <i />
+                        Movement
+                      </span>
+                      <span>
+                        <i />
+                        Hydration
+                      </span>
+                    </div>
+                    <div className="chart">
+                      <div className="chart-labels">
+                        <span>100%</span>
+                        <span>75%</span>
+                        <span>50%</span>
+                        <span>25%</span>
+                      </div>
+                      <div className="chart-plot">
+                        <div className="grid-lines">
+                          <i />
+                          <i />
+                          <i />
+                          <i />
+                        </div>
+                        {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day, i) => (
+                          <div className={`chart-day ${i === 0 ? 'today' : ''}`} key={day}>
+                            <div className="bar-pair">
+                              <span
+                                style={{
+                                  height: `${(period === 'This week' ? [66, 80, 61, 90, 71, 96, 45] : [45, 56, 75, 60, 83, 76, 67])[i]}%`,
+                                }}
+                              />
+                              <span style={{ height: `${[53, 65, 73, 64, 86, 79, 58][i]}%` }} />
+                            </div>
+                            <small>{day}</small>
+                            {i === 0 && <b />}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="chart-note">
+                      <span className="trend-icon">
+                        <Icon name="chart" size={16} />
+                      </span>
+                      <span>
+                        <strong>12% more balanced</strong> than last week. Look at you grow.
+                      </span>
+                    </div>
+                  </section>
+                )}
+
+                {(page === 'Overview' || page === 'Daily habits') && (
+                  <section className="panel habits-panel">
+                    <div className="section-top">
+                      <div>
+                        <h3>To-do list</h3>
+                        <p></p>
+                      </div>
+                      <button
+                        className="text-button"
+                        onClick={() => setModal('Add a to-do')}
+                      >
+                        Add to-do
+                        <Icon name="plus" size={16} />
+                      </button>
+                    </div>
+                    <div className="habit-list">
+                      <div className="habit-row habit-row-checkin">
+                        <DailyCheckIn
+                          inline
+                          onClose={() => {
+                            setCheckInDone(true)
+                            setTodoChecked?.((prev) => ({ ...prev, checkin: true }))
+                          }}
+                        />
+                      </div>
+                      {reminders.map((r) => (
+                        <div
+                          className={`habit-row habit-row-reminder${todoChecked[String(r.id)] ? ' done' : ''}`}
+                          key={r.id}
+                        >
+                          <button
+                            className="habit-checkbox"
+                            aria-label={todoChecked[String(r.id)] ? 'Mark incomplete' : 'Mark complete'}
+                            onClick={() =>
+                              setTodoChecked?.((prev) => ({
+                                ...prev,
+                                [String(r.id)]: !prev[String(r.id)],
+                              }))
+                            }
+                          >
+                            {todoChecked[String(r.id)] && <Icon name="check" size={12} />}
+                          </button>
+                          <span className="habit-icon habit-icon-0">
+                            <Icon name="bell" size={20} />
+                          </span>
+                          <span className="habit-text">
+                            <strong>{r.text}</strong>
+                            <small>{r.time} &middot; {r.days}</small>
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                )}
+
+                {page === 'Overview' && (
+                  <section className="panel food-panel">
+                    <div className="section-top">
+                      <div className="food-title">
+                        <span className="food-title-icon">
+                          <Icon name="fork" size={20} />
+                        </span>
+                        <div>
+                          <h3>A little nourishment</h3>
+                          <p>Good food. Good energy. Good you.</p>
+                        </div>
+                      </div>
+                      <button className="log-meal-button" onClick={() => setModal('Log a meal')}>
+                        <Icon name="plus" size={16} />
+                        Log a meal
+                      </button>
+                    </div>
+                    <div className="food-tabs">
+                      {['All meals', 'Breakfast', 'Lunch', 'Dinner', 'Snacks'].map((tab) => (
+                        <button
+                          key={tab}
+                          className={mealTab === tab ? 'selected' : ''}
+                          onClick={() => setMealTab(tab)}
+                        >
+                          {tab}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="meal-table">
+                      <div className="table-head">
+                        <span>MEAL</span>
+                        <span>CALORIES</span>
+                        <span>PROTEIN</span>
+                        <span>CARBS</span>
+                        <span>FATS</span>
+                        <span />
+                      </div>
+                      {meals
+                        .filter((m) => mealTab === 'All meals' || m.type === mealTab)
+                        .map((meal, i) => (
+                          <div className="meal-row" key={i}>
+                            <div className="meal-info">
+                              <div className={`meal-art meal-art-${i % 2}`}>
+                                <Icon name={i % 2 ? 'leaf' : 'sun'} size={26} />
+                              </div>
+                              <div>
+                                <strong>{meal.name}</strong>
+                                <small>
+                                  {meal.type}
+                                  <span>&middot;</span>
+                                  {meal.time}
+                                </small>
+                              </div>
+                            </div>
+                            <span>
+                              {meal.calories}
+                              <small> kcal</small>
+                            </span>
+                            <span>
+                              {meal.protein}
+                              <small> g</small>
+                            </span>
+                            <span>
+                              {meal.carbs}
+                              <small> g</small>
+                            </span>
+                            <span>
+                              {meal.fats}
+                              <small> g</small>
+                            </span>
+                            <Icon name="check" size={17} />
+                          </div>
+                        ))}
+                      {meals.filter((m) => mealTab === 'All meals' || m.type === mealTab).length ===
+                        0 && (
+                          <div className="empty-meals">
+                            A fresh page for your {mealTab.toLowerCase()}.{' '}
+                            <button onClick={() => setModal('Log a meal')}>
+                              Log your first meal <Icon name="plus" size={14} />
+                            </button>
+                          </div>
+                        )}
+                    </div>
+                  </section>
+                )}
+              </div>
+            </>
+          )}
           <footer className="page-footer">
             <span>
               <Icon name="leaf" size={14} /> Made for your kind of balance.
@@ -1016,7 +1249,7 @@ export default function App({ onSwitch, reminders = [], todoChecked = {}, setTod
                   <>
                     <label>
                       Your name
-                      <input defaultValue="Jamie Lewis" readOnly />
+                      <input defaultValue={displayName} readOnly />
                     </label>
                     <label className="checkbox-label">
                       <input name="reminders" type="checkbox" defaultChecked={settingReminders} /> Show

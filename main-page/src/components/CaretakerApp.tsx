@@ -1,8 +1,12 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import type { FormEvent } from 'react'
 import FamilyTree from './FamilyTree'
+import LinkGateCard from './LinkGateCard'
 import type { Reminder, FamilyMember } from '@/app/(frontend)/page'
+import type { LinkActionResult } from '@/app/(frontend)/link-actions'
+import type { LinkedPartner, LinkState, SessionUser } from '@/lib/auth-store'
 
 function Icon({ name, size = 20, ...props }: { name: string; size?: number; className?: string }) {
   const paths: Record<string, React.ReactNode> = {
@@ -85,6 +89,13 @@ function Icon({ name, size = 20, ...props }: { name: string; size?: number; clas
         <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
       </>
     ),
+    logout: (
+      <>
+        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+        <polyline points="16 17 21 12 16 7" />
+        <line x1="21" y1="12" x2="9" y2="12" />
+      </>
+    ),
   }
   return (
     <svg
@@ -119,19 +130,64 @@ const SAMPLE_PHOTOS: { prompt: string; src: string }[] = []
 
 // ── Overview (Home) page ──────────────────────────────────────────────────────
 
+function formatShortDate(iso?: string) {
+  if (!iso) return ''
+  try {
+    return new Intl.DateTimeFormat('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    }).format(new Date(iso))
+  } catch {
+    return ''
+  }
+}
+
 function OverviewPage({
+  linkedPatient,
+  onUnlink,
+  onNotify,
   reminders,
   setReminders,
   quizQuestions,
   setQuizQuestions,
   todoChecked,
 }: {
+  linkedPatient?: LinkedPartner | null
+  onUnlink?: () => Promise<LinkActionResult>
+  onNotify?: (msg: string) => void
   reminders: Reminder[]
   setReminders: React.Dispatch<React.SetStateAction<Reminder[]>>
   quizQuestions: QuizQuestion[]
   setQuizQuestions: React.Dispatch<React.SetStateAction<QuizQuestion[]>>
   todoChecked: Record<string, boolean>
 }) {
+  const [confirmUnlink, setConfirmUnlink] = useState(false)
+  const [unlinking, setUnlinking] = useState(false)
+  const patientName = linkedPatient?.name || PATIENT.name
+  const patientFirstName = patientName.trim().split(/\s+/)[0] || 'Jamie'
+  const patientInitials =
+    patientName
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((p) => p[0]?.toUpperCase() ?? '')
+      .join('') || PATIENT.initials
+  const linkedDateLabel = formatShortDate(linkedPatient?.linkedAt || linkedPatient?.createdAt)
+
+  async function handleConfirmUnlink() {
+    if (!onUnlink) return
+    setUnlinking(true)
+    try {
+      const result = await onUnlink()
+      setConfirmUnlink(false)
+      if (result.message) onNotify?.(result.message)
+      else if (result.error) onNotify?.(result.error)
+    } finally {
+      setUnlinking(false)
+    }
+  }
   // Reminder form state
   const [reminderText, setReminderText] = useState('')
   const [reminderTime, setReminderTime] = useState('')
@@ -171,21 +227,71 @@ function OverviewPage({
   // Fake to-do items as the patient sees them (read-only)
   return (
     <>
-      {/* Patient card — no condition/stage */}
-      <div className="ct-patient-card">
-        <div className="ct-patient-avatar">{PATIENT.initials}</div>
-        <div className="ct-patient-info">
-          <strong>{PATIENT.name}</strong>
-          <span className="ct-patient-since">In care since {PATIENT.since}</span>
+      {/* Patient info card */}
+      <div className="ct-patient-card flex-col !items-stretch gap-3">
+        <div className="flex items-center gap-3.5">
+          <div className="ct-patient-avatar shrink-0">{patientInitials}</div>
+          <div className="ct-patient-info min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <strong className="truncate">{patientName}</strong>
+              {linkedPatient?.patientCode && (
+                <span className="rounded-full bg-[#eef5e6] px-2 py-0.5 text-[9px] font-bold tracking-[0.5px] text-[#4d6c3d]">
+                  ID: {linkedPatient.patientCode}
+                </span>
+              )}
+            </div>
+            {linkedPatient?.email && (
+              <span className="mt-0.5 block truncate text-[11px] text-[#7a8674]">
+                {linkedPatient.email}
+              </span>
+            )}
+            <span className="ct-patient-since mt-0.5 block">
+              {linkedDateLabel ? `Linked since ${linkedDateLabel}` : `In care since ${PATIENT.since}`}
+            </span>
+          </div>
+          {onUnlink && !confirmUnlink && (
+            <button
+              type="button"
+              onClick={() => setConfirmUnlink(true)}
+              className="shrink-0 rounded-[10px] border border-[#ead4d6] bg-[#fdf4f5] px-2.5 py-1.5 text-[10px] font-semibold text-[#9a575e] hover:bg-[#f9e7e9]"
+            >
+              Unlink
+            </button>
+          )}
         </div>
+        {confirmUnlink && (
+          <div className="flex items-center justify-between gap-2 border-t border-[#eef1e9] pt-2.5">
+            <span className="text-[11px] font-medium text-[#8a5d62]">
+              Unlink from {patientFirstName}?
+            </span>
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                disabled={unlinking}
+                onClick={() => setConfirmUnlink(false)}
+                className="rounded-[9px] border border-[#dce2d5] bg-white px-2.5 py-1.5 text-[10px] font-semibold text-[#6e7966]"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={unlinking}
+                onClick={() => void handleConfirmUnlink()}
+                className="rounded-[9px] bg-[#e9c8cb] px-2.5 py-1.5 text-[10px] font-semibold text-[#84454c] disabled:opacity-60"
+              >
+                {unlinking ? 'Unlinking…' : 'Yes, unlink'}
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* To-do list (read-only view) */}
       <div className="ct-panel">
         <div className="ct-panel-top">
           <div>
-            <h3>Jamie&rsquo;s to-do list</h3>
-            <p className="ct-panel-sub">What Jamie sees today</p>
+            <h3>{patientFirstName}&rsquo;s to-do list</h3>
+            <p className="ct-panel-sub">What {patientFirstName} sees today</p>
           </div>
         </div>
         <ul className="ct-todo-list">
@@ -237,7 +343,7 @@ function OverviewPage({
         <div className="ct-panel-top">
           <div>
             <h3>Reminders</h3>
-            <p className="ct-panel-sub">Appear in Jamie&rsquo;s to-do list</p>
+            <p className="ct-panel-sub">Appear in {patientFirstName}&rsquo;s to-do list</p>
           </div>
           <button className="ct-text-btn" onClick={() => { setShowReminderForm((v) => !v); setEditingReminder(null) }}>
             <Icon name="plus" size={15} /> Add
@@ -341,7 +447,7 @@ function OverviewPage({
         <div className="ct-panel-top">
           <div>
             <h3>Personalized check-in questions</h3>
-            <p className="ct-panel-sub">Added to Jamie&rsquo;s daily check-in pool</p>
+            <p className="ct-panel-sub">Added to {patientFirstName}&rsquo;s daily check-in pool</p>
           </div>
           <button className="ct-text-btn" onClick={() => setShowQuizForm((v) => !v)}>
             <Icon name="plus" size={15} /> Add
@@ -391,20 +497,20 @@ function OverviewPage({
 
 // ── Picture Day review page ───────────────────────────────────────────────────
 
-function PictureReviewPage() {
+function PictureReviewPage({ patientFirstName = 'Jamie' }: { patientFirstName?: string }) {
   const [photos] = useState<{ prompt: string; src: string }[]>(SAMPLE_PHOTOS)
   return (
     <div className="ct-panel">
       <div className="ct-panel-top">
         <div>
           <h3>Picture day</h3>
-          <p className="ct-panel-sub">Photos taken by Jamie</p>
+          <p className="ct-panel-sub">Photos taken by {patientFirstName}</p>
         </div>
       </div>
       {photos.length === 0 ? (
         <div className="ct-picture-empty">
           <span className="ct-picture-empty-icon"><Icon name="camera" size={30} /></span>
-          <p>No pictures yet. Jamie hasn&rsquo;t completed a picture day session.</p>
+          <p>No pictures yet. {patientFirstName} hasn&rsquo;t completed a picture day session.</p>
         </div>
       ) : (
         <div className="ct-picture-grid">
@@ -429,6 +535,11 @@ const LANGUAGES = [
 ]
 
 function SettingsPage({
+  isLinked,
+  linkState,
+  onSendLinkRequest,
+  onUnlink,
+  onNotify,
   patientLang,
   setPatientLang,
   caretakerLang,
@@ -436,6 +547,11 @@ function SettingsPage({
   outsidePictureDay,
   setOutsidePictureDay,
 }: {
+  isLinked: boolean
+  linkState?: LinkState
+  onSendLinkRequest?: (patientCode: string) => Promise<LinkActionResult>
+  onUnlink?: () => Promise<LinkActionResult>
+  onNotify: (msg: string) => void
   patientLang: string
   setPatientLang: (v: string) => void
   caretakerLang: string
@@ -443,80 +559,273 @@ function SettingsPage({
   outsidePictureDay: boolean
   setOutsidePictureDay: (v: boolean) => void
 }) {
+  const [patientIdInput, setPatientIdInput] = useState('')
+  const [sending, setSending] = useState(false)
+  const [confirmUnlink, setConfirmUnlink] = useState(false)
+  const [unlinking, setUnlinking] = useState(false)
+  const [linkError, setLinkError] = useState('')
+  const [linkSuccess, setLinkSuccess] = useState('')
+
+  const linkedPartner = linkState?.linkedPartner ?? null
+  const outgoingRequests = linkState?.outgoingRequests ?? []
+  const patientFirstName = linkedPartner?.name?.trim().split(/\s+/)[0] || 'Jamie'
+
+  async function handleConfirmUnlink() {
+    if (!onUnlink) return
+    setUnlinking(true)
+    setLinkError('')
+    setLinkSuccess('')
+    try {
+      const result = await onUnlink()
+      setConfirmUnlink(false)
+      if (!result.ok) {
+        setLinkError(result.error || 'Could not unlink account.')
+      } else if (result.message) {
+        onNotify(result.message)
+      }
+    } finally {
+      setUnlinking(false)
+    }
+  }
+
+  async function handleSendInvite(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!onSendLinkRequest) return
+    setLinkError('')
+    setLinkSuccess('')
+    if (!patientIdInput.trim()) {
+      setLinkError('Please enter a patient ID.')
+      return
+    }
+    setSending(true)
+    try {
+      const result = await onSendLinkRequest(patientIdInput)
+      if (!result.ok) {
+        setLinkError(result.error || 'Could not send invite.')
+      } else {
+        setPatientIdInput('')
+        const msg = result.message || 'Link invite sent!'
+        setLinkSuccess(msg)
+        onNotify(msg)
+      }
+    } finally {
+      setSending(false)
+    }
+  }
+
   return (
     <>
       <div className="ct-panel">
         <div className="ct-panel-top">
           <div>
-            <h3>Language</h3>
-            <p className="ct-panel-sub">Set the display language for each user</p>
+            <h3>Patient link</h3>
+            <p className="ct-panel-sub">
+              {isLinked
+                ? 'Your account is linked and ready.'
+                : 'Enter the patient\u2019s ID from their home page to send an invite.'}
+            </p>
           </div>
         </div>
-        <div className="ct-settings-rows">
-          <div className="ct-settings-row">
-            <div className="ct-settings-label">
-              <span className="ct-settings-icon"><Icon name="globe" size={16} /></span>
-              <div>
-                <strong>Jamie&rsquo;s language</strong>
-                <small>What the patient sees</small>
+
+        {isLinked && linkedPartner ? (
+          <div className="mt-3 rounded-[14px] border border-[#cde0bd] bg-[#eef5e6] px-4 py-3">
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <strong className="block truncate text-[13px] font-semibold text-[#3c5737]">
+                  Linked with {linkedPartner.name}
+                </strong>
+                <small className="block truncate text-[11px] text-[#6d8262]">
+                  {linkedPartner.patientCode ? `Patient ID: ${linkedPartner.patientCode} · ` : ''}
+                  {linkedPartner.email}
+                </small>
               </div>
+              <span className="shrink-0 rounded-full bg-white px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.6px] text-[#4e723d]">
+                Linked
+              </span>
             </div>
-            <select
-              className="ct-select"
-              value={patientLang}
-              onChange={(e) => setPatientLang(e.target.value)}
-              aria-label="Patient language"
-            >
-              {LANGUAGES.map((l) => <option key={l}>{l}</option>)}
-            </select>
-          </div>
-          <div className="ct-settings-row">
-            <div className="ct-settings-label">
-              <span className="ct-settings-icon"><Icon name="globe" size={16} /></span>
-              <div>
-                <strong>Your language</strong>
-                <small>What you see as caretaker</small>
+            {onUnlink && (
+              <div className="mt-3 border-t border-[#d8e7ca] pt-2.5">
+                {confirmUnlink ? (
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[11px] font-medium text-[#8a5d62]">
+                      Unlink from {patientFirstName}? Features will lock until you link again.
+                    </span>
+                    <div className="flex shrink-0 items-center gap-1.5">
+                      <button
+                        type="button"
+                        disabled={unlinking}
+                        onClick={() => setConfirmUnlink(false)}
+                        className="rounded-[9px] border border-[#dce2d5] bg-white px-2.5 py-1.5 text-[10px] font-semibold text-[#6e7966]"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        disabled={unlinking}
+                        onClick={() => void handleConfirmUnlink()}
+                        className="rounded-[9px] bg-[#e9c8cb] px-2.5 py-1.5 text-[10px] font-semibold text-[#84454c] disabled:opacity-60"
+                      >
+                        {unlinking ? 'Unlinking…' : 'Yes, unlink'}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setConfirmUnlink(true)}
+                    className="w-full rounded-[10px] border border-[#ead4d6] bg-[#fdf4f5] py-2 text-[11px] font-semibold text-[#9a575e] hover:bg-[#f9e7e9]"
+                  >
+                    Unlink from {linkedPartner.name}
+                  </button>
+                )}
               </div>
-            </div>
-            <select
-              className="ct-select"
-              value={caretakerLang}
-              onChange={(e) => setCaretakerLang(e.target.value)}
-              aria-label="Caretaker language"
-            >
-              {LANGUAGES.map((l) => <option key={l}>{l}</option>)}
-            </select>
+            )}
           </div>
-        </div>
+        ) : (
+          <div className="mt-3 space-y-3">
+            <form onSubmit={handleSendInvite} className="flex flex-col gap-2.5">
+              <label className="block">
+                <span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[1px] text-[#8d9885]">
+                  PATIENT ID
+                </span>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={patientIdInput}
+                    onChange={(e) => setPatientIdInput(e.target.value.toUpperCase())}
+                    placeholder="e.g. RLF-4829"
+                    aria-label="Patient ID"
+                    className="min-w-0 flex-1 rounded-[12px] border border-[#dfe5d7] bg-[#fafbf8] px-3.5 py-2.5 font-['Manrope'] text-[13px] font-semibold tracking-[0.5px] text-[#354437] uppercase outline-none placeholder:font-normal placeholder:normal-case placeholder:tracking-normal placeholder:text-[#adb6a5] focus:border-[#93ae7d]"
+                  />
+                  <button
+                    type="submit"
+                    disabled={sending}
+                    className="shrink-0 rounded-[12px] bg-[#5f7d4d] px-4 py-2.5 font-['Manrope'] text-[12px] font-bold text-white transition hover:bg-[#526e41] disabled:opacity-60"
+                  >
+                    {sending ? 'Sending…' : 'Send invite'}
+                  </button>
+                </div>
+              </label>
+
+              {linkError && (
+                <p role="alert" className="text-[11px] font-medium text-[#a1555c]">
+                  {linkError}
+                </p>
+              )}
+              {linkSuccess && (
+                <p role="status" className="text-[11px] font-medium text-[#4d6e3f]">
+                  {linkSuccess}
+                </p>
+              )}
+            </form>
+
+            {outgoingRequests.length > 0 && (
+              <div className="space-y-2 pt-1">
+                <span className="block text-[10px] font-bold uppercase tracking-[0.9px] text-[#8d9885]">
+                  Pending invites
+                </span>
+                {outgoingRequests.map((req) => (
+                  <div
+                    key={req.id}
+                    className="flex items-center justify-between gap-2 rounded-[12px] border border-[#e3e9db] bg-[#f7faf2] px-3.5 py-2.5"
+                  >
+                    <div className="min-w-0">
+                      <strong className="block truncate text-[12px] font-semibold text-[#42553f]">
+                        {req.patientName}
+                      </strong>
+                      <small className="block text-[10px] text-[#7c8c73]">
+                        ID: {req.patientCode} · Waiting for patient to accept
+                      </small>
+                    </div>
+                    <span className="shrink-0 rounded-full bg-[#e8efdc] px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.6px] text-[#5e7a4a]">
+                      Pending
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
-      <div className="ct-panel">
-        <div className="ct-panel-top">
-          <div>
-            <h3>Picture day</h3>
-            <p className="ct-panel-sub">Control where picture day is available</p>
-          </div>
-        </div>
-        <div className="ct-settings-rows">
-          <div className="ct-settings-row">
-            <div className="ct-settings-label">
-              <span className="ct-settings-icon"><Icon name="camera" size={16} /></span>
+      {!isLinked ? (
+        <LinkGateCard role="caregiver" compact />
+      ) : (
+        <>
+          <div className="ct-panel">
+            <div className="ct-panel-top">
               <div>
-                <strong>Outside picture day</strong>
-                <small>Jamie can take pictures outdoors</small>
+                <h3>Language</h3>
+                <p className="ct-panel-sub">Set the display language for each user</p>
               </div>
             </div>
-            <button
-              className={`ct-toggle ${outsidePictureDay ? 'ct-toggle-on' : ''}`}
-              role="switch"
-              aria-checked={outsidePictureDay}
-              onClick={() => setOutsidePictureDay(!outsidePictureDay)}
-            >
-              <span className="ct-toggle-thumb" />
-            </button>
+            <div className="ct-settings-rows">
+              <div className="ct-settings-row">
+                <div className="ct-settings-label">
+                  <span className="ct-settings-icon"><Icon name="globe" size={16} /></span>
+                  <div>
+                    <strong>{patientFirstName}&rsquo;s language</strong>
+                    <small>What the patient sees</small>
+                  </div>
+                </div>
+                <select
+                  className="ct-select"
+                  value={patientLang}
+                  onChange={(e) => setPatientLang(e.target.value)}
+                  aria-label="Patient language"
+                >
+                  {LANGUAGES.map((l) => <option key={l}>{l}</option>)}
+                </select>
+              </div>
+              <div className="ct-settings-row">
+                <div className="ct-settings-label">
+                  <span className="ct-settings-icon"><Icon name="globe" size={16} /></span>
+                  <div>
+                    <strong>Your language</strong>
+                    <small>What you see as caretaker</small>
+                  </div>
+                </div>
+                <select
+                  className="ct-select"
+                  value={caretakerLang}
+                  onChange={(e) => setCaretakerLang(e.target.value)}
+                  aria-label="Caretaker language"
+                >
+                  {LANGUAGES.map((l) => <option key={l}>{l}</option>)}
+                </select>
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
+
+          <div className="ct-panel">
+            <div className="ct-panel-top">
+              <div>
+                <h3>Picture day</h3>
+                <p className="ct-panel-sub">Control where picture day is available</p>
+              </div>
+            </div>
+            <div className="ct-settings-rows">
+              <div className="ct-settings-row">
+                <div className="ct-settings-label">
+                  <span className="ct-settings-icon"><Icon name="camera" size={16} /></span>
+                  <div>
+                    <strong>Outside picture day</strong>
+                    <small>{patientFirstName} can take pictures outdoors</small>
+                  </div>
+                </div>
+                <button
+                  className={`ct-toggle ${outsidePictureDay ? 'ct-toggle-on' : ''}`}
+                  role="switch"
+                  aria-checked={outsidePictureDay}
+                  onClick={() => setOutsidePictureDay(!outsidePictureDay)}
+                >
+                  <span className="ct-toggle-thumb" />
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
     </>
   )
 }
@@ -526,6 +835,11 @@ function SettingsPage({
 type CTPage = 'Overview' | 'Pictures' | 'Family' | 'Settings'
 
 export default function CaretakerApp({
+  user,
+  linkState,
+  onSendLinkRequest,
+  onUnlink,
+  onSignOut,
   onSwitch,
   reminders,
   setReminders,
@@ -533,7 +847,12 @@ export default function CaretakerApp({
   familyMembers,
   setFamilyMembers,
 }: {
-  onSwitch: () => void
+  user?: SessionUser
+  linkState?: LinkState
+  onSendLinkRequest?: (patientCode: string) => Promise<LinkActionResult>
+  onUnlink?: () => Promise<LinkActionResult>
+  onSignOut?: () => Promise<void>
+  onSwitch?: () => void
   reminders: Reminder[]
   setReminders: React.Dispatch<React.SetStateAction<Reminder[]>>
   todoChecked: Record<string, boolean>
@@ -543,6 +862,9 @@ export default function CaretakerApp({
   const screenRef = useRef<HTMLElement>(null)
   const [page, setPage] = useState<CTPage>('Overview')
   const [toast, setToast] = useState('')
+  const firstName = user?.name?.trim().split(/\s+/)[0] || 'Alex'
+  const isLinked = Boolean(linkState?.linkedPartner)
+  const patientFirstName = linkState?.linkedPartner?.name?.trim().split(/\s+/)[0] || 'Jamie'
 
   // Local state only for this app
   const [quizQuestions, setQuizQuestions] = useState<QuizQuestion[]>(initialQuizQuestions)
@@ -555,10 +877,13 @@ export default function CaretakerApp({
   function notify(msg: string) { setToast(msg); window.setTimeout(() => setToast(''), 3200) }
 
   const pageMeta: Record<CTPage, { title: string; sub: string }> = {
-    Overview:  { title: 'Good morning, Alex.', sub: 'Here\u2019s how Jamie is doing today.' },
-    Pictures:  { title: 'Picture day.',         sub: 'Review photos Jamie has taken.' },
-    Family:    { title: 'Family tree.',          sub: 'View and edit Jamie\u2019s family tree.' },
-    Settings:  { title: 'Settings.',             sub: 'Language and app preferences.' },
+    Overview:  {
+      title: `Good morning, ${firstName}.`,
+      sub: isLinked ? `Here\u2019s how ${patientFirstName} is doing today.` : 'Link with your patient to get started.',
+    },
+    Pictures:  { title: 'Picture day.',         sub: isLinked ? `Review photos ${patientFirstName} has taken.` : 'Link up to review patient photos.' },
+    Family:    { title: 'Family tree.',          sub: isLinked ? `View and edit ${patientFirstName}\u2019s family tree.` : 'Link up to manage the family tree.' },
+    Settings:  { title: 'Settings.',             sub: isLinked ? 'Language and app preferences.' : 'Enter a patient ID to link up.' },
   }
 
   const navItems: { name: CTPage; icon: string; label: string }[] = [
@@ -602,30 +927,65 @@ export default function CaretakerApp({
               <button className="date-button" aria-label="Notifications" onClick={() => notify('No new notifications.')}>
                 <Icon name="bell" size={20} />
               </button>
-              <button className="ct-switch-btn" onClick={onSwitch} title="Switch to patient view" aria-label="Switch to patient view">
-                <Icon name="users" size={16} />
-              </button>
+              {onSignOut ? (
+                <form action={onSignOut}>
+                  <button
+                    type="submit"
+                    className="ct-switch-btn"
+                    title="Sign out"
+                    aria-label="Sign out"
+                  >
+                    <Icon name="logout" size={16} />
+                  </button>
+                </form>
+              ) : onSwitch ? (
+                <button className="ct-switch-btn" onClick={onSwitch} title="Switch to patient view" aria-label="Switch to patient view">
+                  <Icon name="users" size={16} />
+                </button>
+              ) : null}
             </div>
           </section>
 
           {page === 'Overview' && (
-            <OverviewPage
-              reminders={reminders}
-              setReminders={setReminders}
-              quizQuestions={quizQuestions}
-              setQuizQuestions={setQuizQuestions}
-              todoChecked={todoChecked}
-            />
+            isLinked ? (
+              <OverviewPage
+                linkedPatient={linkState?.linkedPartner}
+                onUnlink={onUnlink}
+                onNotify={notify}
+                reminders={reminders}
+                setReminders={setReminders}
+                quizQuestions={quizQuestions}
+                setQuizQuestions={setQuizQuestions}
+                todoChecked={todoChecked}
+              />
+            ) : (
+              <LinkGateCard role="caregiver" onGoToSettings={() => setPage('Settings')} />
+            )
           )}
-          {page === 'Pictures' && <PictureReviewPage />}
+          {page === 'Pictures' && (
+            isLinked ? (
+              <PictureReviewPage patientFirstName={patientFirstName} />
+            ) : (
+              <LinkGateCard role="caregiver" onGoToSettings={() => setPage('Settings')} />
+            )
+          )}
           {page === 'Family' && (
-            <FamilyTree
-              members={familyMembers ?? undefined}
-              setMembers={setFamilyMembers}
-            />
+            isLinked ? (
+              <FamilyTree
+                members={familyMembers ?? undefined}
+                setMembers={setFamilyMembers}
+              />
+            ) : (
+              <LinkGateCard role="caregiver" onGoToSettings={() => setPage('Settings')} />
+            )
           )}
           {page === 'Settings' && (
             <SettingsPage
+              isLinked={isLinked}
+              linkState={linkState}
+              onSendLinkRequest={onSendLinkRequest}
+              onUnlink={onUnlink}
+              onNotify={notify}
               patientLang={patientLang}
               setPatientLang={setPatientLang}
               caretakerLang={caretakerLang}
