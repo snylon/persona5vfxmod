@@ -1,7 +1,7 @@
 ﻿'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import type { CSSProperties, FormEvent } from 'react'
+import type { FormEvent } from 'react'
 import { Game, GameCards, gameNames } from './Games'
 import type { GameName } from './Games'
 import FamilyTree from './FamilyTree'
@@ -98,6 +98,14 @@ function Icon({ name, size = 20, ...props }: { name: string; size?: number; clas
       </>
     ),
     close: <path d="m6 6 12 12M6 18 18 6" />,
+    users: (
+      <>
+        <circle cx="8" cy="8" r="4" />
+        <path d="M2 20c0-4 2.7-7 6-7s6 3 6 7" />
+        <path d="M17 11c1.7 0 3 1.3 3 3s-1.3 3-3 3" />
+        <path d="M22 20c0-2.5-1.5-4.5-3-5" />
+      </>
+    ),
     clock: (
       <>
         <circle cx="12" cy="12" r="9" />
@@ -139,12 +147,208 @@ const initialHabits = [
   },
 ]
 
-export default function App() {
+const ALL_CHECKIN_QUESTIONS = [
+  "What was the best thing you ate today?",
+  "What do you like to do?",
+  "What is your favourite song?",
+  "What is your favourite country you've visited?",
+  "What's your favourite place in the city?",
+  "What conversations have you had today?",
+  "What is your favourite childhood memory?",
+  "What was the name of your first pet, or an animal you loved growing up?",
+  "Who was your best friend when you were a kid, and what did you used to do together?",
+  "What was your favorite game or toy when you were young?",
+  "What was your favorite subject in school, or the one you liked the least?",
+  "Did you have a favorite teacher growing up? What made them special?",
+  "What kind of music did you listen to when you were a teenager?",
+  "What was your very first job, and what did you do with your first paycheck?",
+  "What was your favorite holiday or family tradition growing up?",
+  "Did you ever have a treehouse, a fort, or a secret hiding spot as a kid?",
+  "What was your favorite sweet or treat from a bakery or corner store when you were young?",
+  "What is a smell that instantly reminds you of home?",
+  "What is the best meal you have ever eaten, and who made it?",
+  "Do you prefer the sound of rain on a roof, ocean waves, or birds chirping in the morning?",
+  "What is your favorite season of the year, and what do you love about it?",
+  "What is a song that always makes you want to dance or tap your foot?",
+  "Do you prefer coffee, tea, or hot chocolate, and how do you like it made?",
+  "What is the coziest piece of clothing or blanket you've ever owned?",
+  "What is your favorite flower or tree?",
+  "Are you a morning person or a night owl?",
+  "If you could have any animal as a pet right now, what would you choose?",
+  "Do you prefer the mountains, the beach, or the quiet countryside?",
+  "What is your favorite movie or TV show to watch when you want a good laugh?",
+  "Are you more of a sweet tooth or a salty-snack person?",
+  "What is your favorite color to wear?",
+  "Do you like thunderstorms, or do you prefer clear, sunny skies?",
+  "What is a small thing that always puts a smile on your face?",
+  "How are you feeling right now, in just a few words?",
+  "What is something nice you noticed outside the window today?",
+  "Is there a song stuck in your head today?",
+  "What is something you are looking forward to this week?",
+  "Who is someone you're grateful to have in your life?",
+  "What is the nicest thing someone has done for you recently?",
+  "If you could have anything in the world for dinner tonight, what would you pick?",
+  "Cats or dogs?",
+  "Summer heat or winter snow?",
+  "Sweet breakfast (pancakes/waffles) or savory breakfast (eggs/bacon)?",
+  "Reading a good book or watching a classic movie?",
+  "Driving on a road trip or taking a train?",
+  "Ice cream in a cone or in a bowl?",
+  "Sunrise or sunset?",
+]
+
+function pickQuestions(count: number, exclude: string[] = []): string[] {
+  const pool = ALL_CHECKIN_QUESTIONS.filter((q) => !exclude.includes(q))
+  const picked: string[] = []
+  const copy = [...pool]
+  for (let i = 0; i < Math.min(count, copy.length); i++) {
+    const idx = Math.floor(Math.random() * copy.length)
+    picked.push(copy.splice(idx, 1)[0])
+  }
+  return picked
+}
+
+function Sparkles() {
+  return (
+    <div className="checkin-sparkles" aria-hidden="true">
+      {['✦','✧','✦','✧','✦','✦','✧','✦'].map((s, i) => (
+        <span key={i} className={`spark spark-${i}`}>{s}</span>
+      ))}
+    </div>
+  )
+}
+
+function DailyCheckIn({ onClose, inline = false }: { onClose: () => void; inline?: boolean }) {
+  const TOTAL = 5
+  const [questions, setQuestions] = useState<string[]>(() => pickQuestions(TOTAL))
+  const [step, setStep] = useState(0)
+  const [inputVal, setInputVal] = useState('')
+
+  const progress = step >= TOTAL ? 100 : Math.round((step / TOTAL) * 100)
+  const done = step >= TOTAL
+
+  function handleAnswer() {
+    setInputVal('')
+    setStep(step + 1)
+  }
+
+  function handleSkip() {
+    // Replace current question with a fresh one not already in the list
+    const replacement = pickQuestions(1, questions)
+    if (replacement.length) {
+      const updated = [...questions]
+      updated[step] = replacement[0]
+      setQuestions(updated)
+    }
+    setInputVal('')
+  }
+
+  if (inline) {
+    return (
+      <div className="checkin-inline">
+        {done ? (
+          <div className="checkin-inline-done">
+            <Sparkles />
+            <span className="checkin-inline-done-emoji">🌸</span>
+            <span className="checkin-inline-done-text">Daily check-in complete!</span>
+          </div>
+        ) : (
+          <>
+            <div className="checkin-inline-top">
+              <span className="checkin-inline-label">Daily check-in</span>
+              <span className="checkin-inline-steps">{step + 1} / {TOTAL}</span>
+            </div>
+            <div className="checkin-progress-track checkin-inline-bar">
+              <div className="checkin-progress-fill" style={{ width: `${progress}%` }} />
+            </div>
+            <p className="checkin-inline-question">{questions[step]}</p>
+            <textarea
+              className="checkin-textarea checkin-inline-textarea"
+              placeholder="Your answer…"
+              value={inputVal}
+              onChange={(e) => setInputVal(e.target.value)}
+              rows={2}
+            />
+            <div className="checkin-inline-actions">
+              <button className="checkin-skip" onClick={handleSkip}>
+                Skip / I&apos;m not sure
+              </button>
+              <button
+                className="checkin-inline-next"
+                onClick={handleAnswer}
+                disabled={!inputVal.trim()}
+              >
+                {step === TOTAL - 1 ? 'Finish' : 'Next'} <Icon name="arrow" size={14} />
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    )
+  }
+
+  return (
+    <div className="checkin-wrap">
+      <div className="checkin-progress-track">
+        <div className="checkin-progress-fill" style={{ width: `${progress}%` }} />
+      </div>
+      <div className="checkin-step-label">
+        {done ? '' : `Question ${step + 1} of ${TOTAL}`}
+      </div>
+
+      {done ? (
+        <div className="checkin-done">
+          <Sparkles />
+          <div className="checkin-done-emoji">🌸</div>
+          <h3>All done for today!</h3>
+          <p>Thank you for sharing. These little moments matter.</p>
+          <button className="primary-button" onClick={onClose}>
+            Back to my day <Icon name="leaf" size={16} />
+          </button>
+        </div>
+      ) : (
+        <div className="checkin-question-wrap">
+          <p className="checkin-question">{questions[step]}</p>
+          <textarea
+            className="checkin-textarea"
+            placeholder="Type your answer here…"
+            value={inputVal}
+            onChange={(e) => setInputVal(e.target.value)}
+            autoFocus
+            rows={3}
+          />
+          <div className="checkin-actions">
+            <button className="checkin-skip" onClick={handleSkip}>
+              Skip / I&apos;m not sure
+            </button>
+            <button
+              className="primary-button"
+              onClick={handleAnswer}
+              disabled={!inputVal.trim()}
+            >
+              Next <Icon name="arrow" size={16} />
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+export default function App({ onSwitch, reminders = [], todoChecked = {}, setTodoChecked, familyMembers, setFamilyMembers }: {
+  onSwitch?: () => void
+  reminders?: import('@/app/(frontend)/page').Reminder[]
+  todoChecked?: Record<string, boolean>
+  setTodoChecked?: React.Dispatch<React.SetStateAction<Record<string, boolean>>>
+  familyMembers?: import('@/app/(frontend)/page').FamilyMember[] | null
+  setFamilyMembers?: React.Dispatch<React.SetStateAction<import('@/app/(frontend)/page').FamilyMember[]>>
+}) {
   const screenRef = useRef<HTMLElement>(null)
   const [page, setPage] = useState('Overview')
   const [habits, setHabits] = useState(initialHabits)
   const [modal, setModal] = useState<string | null>(null)
-  const [reminders, setReminders] = useState(true)
+  const [settingReminders, setSettingReminders] = useState(true)
+  const [checkInDone, setCheckInDone] = useState(false)
   const [period, setPeriod] = useState('This week')
   const [mealTab, setMealTab] = useState('All meals')
   const [meals, setMeals] = useState([
@@ -168,7 +372,6 @@ export default function App() {
     },
   ])
   const [activity, setActivity] = useState(6420)
-  const completed = habits.filter((h) => h.done).length
   const [toast, setToast] = useState('')
   const todayDisplayDate = new Intl.DateTimeFormat('en-US', {
     weekday: 'long',
@@ -223,7 +426,7 @@ export default function App() {
           fats: 10,
         },
       ])
-      notify('Your meal has been added to todayΓÇÖs journal.')
+      notify('Your meal has been added to today\u2019s journal.')
     } else if (modal === 'Log activity') {
       setActivity(activity + Number(data.get('steps')))
       notify('A little movement, a little progress. Activity added!')
@@ -239,7 +442,7 @@ export default function App() {
       ])
       notify('Your new to-do is ready for today.')
     } else {
-      setReminders(data.get('reminders') === 'on')
+      setSettingReminders(data.get('reminders') === 'on')
       notify('Your preferences have been updated.')
     }
     setModal(null)
@@ -294,7 +497,7 @@ export default function App() {
               <br />A healthier you.
             </h3>
             <p>
-              Progress isnΓÇÖt always a straight line.
+            Progress isn\u2019t always a straight line.
               <br />
               Keep growing at your own pace.
             </p>
@@ -332,23 +535,32 @@ export default function App() {
                     ? 'Your games.'
                     : page === 'Family tree'
                       ? 'Your family tree.'
-                      : 'Your life, one page at a time.'}
+                      : page === 'Food journal'
+                        ? ''
+                        : 'Your life, one page at a time.'}
                 {page === 'Overview' && (
                   <span className="heading-spark" aria-hidden="true">
                     <Icon name="cloud" size={28} />
                   </span>
                 )}
               </h1>
-              {page !== 'Family tree' && (
+              {page !== 'Family tree' && page !== 'Food journal' && (
                 <p>
                   {page === 'Overview'
-                    ? 'ItΓÇÖs chilly today, make sure to stay warm.'
+                    ? 'It\u2019s chilly today, make sure to stay warm.'
                     : page === 'Games'
-                      ? 'Choose a little game and play at your own pace.'
-                      : 'Write it, say it, and remember what made today yours.'}
+                      ? ''
+                      : ''}
                 </p>
               )}
             </div>
+            {onSwitch && (
+              <div className="ct-header-right">
+                <button className="ct-switch-btn" onClick={onSwitch} title="Switch to caretaker view">
+                  <Icon name="users" size={16} />
+                </button>
+              </div>
+            )}
           </section>
 
           {(page === 'Overview' || page === 'My progress') && (
@@ -365,12 +577,12 @@ export default function App() {
                       <br />A lot of possibility.
                     </h2>
                     <p>
-                      YouΓÇÖre showing up for yourself.
+                      You\u2019re showing up for yourself.
                       <br />
-                      And thatΓÇÖs a beautiful place to start.
+                      And that\u2019s a beautiful place to start.
                     </p>
                     <button onClick={() => setPage('Daily habits')}>
-                      LetΓÇÖs keep growing <Icon name="arrow" size={17} />
+                      Let\u2019s keep growing <Icon name="arrow" size={17} />
                     </button>
                   </div>
                   <div className="garden" aria-hidden="true">
@@ -397,34 +609,6 @@ export default function App() {
                     <span className="garden-small-circle" />
                   </div>
                 </section>
-                <section className="plan-card">
-                  <div className="section-top">
-                    <h3>TodayΓÇÖs quiz</h3>
-                    <span className="mini-badge">YouΓÇÖve got this</span>
-                  </div>
-                  <div className="plan-body">
-                    <div className="progress-ring" style={{ '--progress': '50%' } as CSSProperties}>
-                      <div>
-                        <strong>
-                          <span className="progress-percent">
-                            50<span>%</span>
-                          </span>
-                          <small className="progress-completed">complete</small>
-                        </strong>
-                      </div>
-                    </div>
-                    <button
-                      className="plan-arrow-button"
-                      aria-label="Continue with Counting boxes"
-                      onClick={() => setModal('Counting boxes')}
-                    >
-                      <Icon name="arrow" size={23} />
-                    </button>
-                  </div>
-                  <div className="plan-foot">
-                    <Icon name="leaf" size={15} /> A little progress is still progress.
-                  </div>
-                </section>
               </div>
 
             </>
@@ -432,7 +616,12 @@ export default function App() {
 
           {page === 'Games' && <GameCards onPlay={(game) => setModal(game)} />}
 
-          {page === 'Family tree' && <FamilyTree />}
+          {page === 'Family tree' && (
+            <FamilyTree
+              members={familyMembers ?? undefined}
+              setMembers={setFamilyMembers}
+            />
+          )}
 
           {page === 'Food journal' && <Journal />}
 
@@ -511,7 +700,7 @@ export default function App() {
                 <div className="section-top">
                   <div>
                     <h3>To-do list</h3>
-                    <p>Small rituals, made for you.</p>
+                    <p></p>
                   </div>
                   <button
                     className="text-button"
@@ -522,34 +711,41 @@ export default function App() {
                   </button>
                 </div>
                 <div className="habit-list">
-                  {habits.map((habit, i) => (
-                    <button
-                      className={`habit-row ${habit.done ? 'done' : ''}`}
-                      key={i}
-                      onClick={() =>
-                        setHabits(habits.map((h, n) => (n === i ? { ...h, done: !h.done } : h)))
-                      }
+                  <div className="habit-row habit-row-checkin">
+                    <DailyCheckIn
+                      inline
+                      onClose={() => {
+                        setCheckInDone(true)
+                        setTodoChecked?.((prev) => ({ ...prev, checkin: true }))
+                      }}
+                    />
+                  </div>
+                  {reminders.map((r) => (
+                    <div
+                      className={`habit-row habit-row-reminder${todoChecked[String(r.id)] ? ' done' : ''}`}
+                      key={r.id}
                     >
-                      <span className={`habit-icon habit-icon-${i % 3}`}>
-                        <Icon name={habit.icon} size={20} />
+                      <button
+                        className="habit-checkbox"
+                        aria-label={todoChecked[String(r.id)] ? 'Mark incomplete' : 'Mark complete'}
+                        onClick={() =>
+                          setTodoChecked?.((prev) => ({
+                            ...prev,
+                            [String(r.id)]: !prev[String(r.id)],
+                          }))
+                        }
+                      >
+                        {todoChecked[String(r.id)] && <Icon name="check" size={12} />}
+                      </button>
+                      <span className="habit-icon habit-icon-0">
+                        <Icon name="bell" size={20} />
                       </span>
                       <span className="habit-text">
-                        <strong>{habit.title}</strong>
-                        <small>{habit.detail}</small>
+                        <strong>{r.text}</strong>
+                        <small>{r.time} &middot; {r.days}</small>
                       </span>
-                      <span className="habit-check">
-                        {habit.done && <Icon name="check" size={15} />}
-                      </span>
-                    </button>
+                    </div>
                   ))}
-                </div>
-                <div className="habits-footer">
-                  <span className="tiny-spark">
-                    <Icon name="sun" size={14} />
-                  </span>
-                  <span>
-                    {completed} of {habits.length} to-dos complete. YouΓÇÖre doing beautifully.
-                  </span>
                 </div>
               </section>
             )}
@@ -603,7 +799,7 @@ export default function App() {
                             <strong>{meal.name}</strong>
                             <small>
                               {meal.type}
-                              <span>┬╖</span>
+                              <span>&middot;</span>
                               {meal.time}
                             </small>
                           </div>
@@ -675,12 +871,16 @@ export default function App() {
             >
               <Icon name="close" />
             </button>
-            <span className="modal-leaf">
-              <Icon name="leaf" size={25} />
-            </span>
-            <h2 id="modal-title">{modal}</h2>
+            {modal !== 'Daily check-in' && (
+              <span className="modal-leaf">
+                <Icon name="leaf" size={25} />
+              </span>
+            )}
+            <h2 id="modal-title" className={modal === 'Daily check-in' ? 'checkin-modal-title' : ''}>{modal}</h2>
             {gameNames.includes(modal as GameName) ? (
               <Game key={modal} name={modal as GameName} />
+            ) : modal === 'Daily check-in' ? (
+              <DailyCheckIn onClose={() => { setCheckInDone(true); setTodoChecked?.((prev) => ({ ...prev, checkin: true })); setModal(null) }} />
             ) : modal === 'A little help' ? (
               <>
                 <p>
@@ -692,7 +892,7 @@ export default function App() {
                   your own pace.
                 </p>
                 <button className="primary-button" onClick={() => setModal(null)}>
-                  Got it, letΓÇÖs grow
+                  Got it, let\u2019s grow
                 </button>
               </>
             ) : modal === 'Take Bloom with you' ? (
@@ -801,7 +1001,7 @@ export default function App() {
                       <input defaultValue="Jamie Lewis" readOnly />
                     </label>
                     <label className="checkbox-label">
-                      <input name="reminders" type="checkbox" defaultChecked={reminders} /> Show
+                      <input name="reminders" type="checkbox" defaultChecked={settingReminders} /> Show
                       daily wellness reminders
                     </label>
                     <p className="form-hint">Preferences apply for this session.</p>

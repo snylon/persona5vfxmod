@@ -5,7 +5,7 @@ import { BodyCustomCode, renderHeadCustomCode } from '@/lib/make-custom-code'
 import { makeSiteSettings, sanitizeHtmlAttribute } from '@/lib/make-site-settings'
 import './styles.css'
 
-const defaultTitle = 'Unforgotten'
+const defaultTitle = 'Releaf'
 const title = makeSiteSettings.title ?? defaultTitle
 const description =
   makeSiteSettings.description ?? 'Built with Next.js, Payload CMS, and Tailwind CSS'

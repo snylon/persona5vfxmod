@@ -13,7 +13,7 @@ type JournalPage = {
   savedAt?: string
 }
 
-const STORAGE_KEY = 'unforgotten-journal-pages'
+const STORAGE_KEY = 'releaf-journal-pages'
 const MAX_IMAGES_PER_PAGE = 4
 const MAX_IMAGE_DIMENSION = 960
 const IMAGE_JPEG_QUALITY = 0.78
