@@ -622,7 +622,7 @@ export default function App({ user, linkState, onRespondLinkRequest, onSignOut, 
                     : page === 'Games'
                       ? 'Your games.'
                       : page === 'Family tree'
-                        ? 'Your family tree.'
+                        ? 'Your tree.'
                         : page === 'Food journal'
                           ? ''
                           : 'Your life, one page at a time.'}

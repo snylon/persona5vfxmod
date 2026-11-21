@@ -22,59 +22,41 @@ const MAX_AVATAR_DIMENSION = 480
 
 const defaultMembers: FamilyMember[] = [
   {
-    id: 'margaret',
-    name: 'Margaret',
-    role: 'Grandmother',
+    id: 'nancy',
+    name: 'Nancy',
+    role: 'You',
     phone: '',
-    x: 20,
-    y: 17,
+    x: 27,
+    y: 69,
     variant: 'apple',
+    isCurrent: true,
   },
   {
-    id: 'robert',
-    name: 'Robert',
-    role: 'Grandfather',
+    id: 'will',
+    name: 'Will',
+    role: 'Father',
     phone: '',
     x: 80,
     y: 20,
     variant: 'berry',
   },
   {
-    id: 'sarah',
-    name: 'Sarah',
+    id: 'jad',
+    name: 'Jad',
+    role: 'Brother',
+    phone: '',
+    x: 74,
+    y: 72,
+    variant: 'plum',
+  },
+  {
+    id: 'janelle',
+    name: 'Janelle',
     role: 'Mother',
     phone: '',
     x: 16,
     y: 43,
     variant: 'peach',
-  },
-  {
-    id: 'daniel',
-    name: 'Daniel',
-    role: 'Father',
-    phone: '',
-    x: 84,
-    y: 47,
-    variant: 'plum',
-  },
-  {
-    id: 'jamie',
-    name: 'Jamie',
-    role: 'You',
-    phone: '',
-    x: 27,
-    y: 69,
-    variant: 'pear',
-    isCurrent: true,
-  },
-  {
-    id: 'alex',
-    name: 'Alex',
-    role: 'Sibling',
-    phone: '',
-    x: 74,
-    y: 72,
-    variant: 'lemon',
   },
 ]
 
@@ -253,20 +235,16 @@ export default function FamilyTree({
 
   function persistMembers(updater: (current: FamilyMember[]) => FamilyMember[]) {
     setStorageError('')
-    setMembers((current) => {
-      const next = updater(current)
-      try {
-        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
-        return next
-      } catch {
-        queueMicrotask(() =>
-          setStorageError(
-            'Storage is full. Try using a smaller photo or removing an unused apple.',
-          ),
-        )
-        return current
-      }
-    })
+    const next = updater(members)
+    try {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
+    } catch {
+      setStorageError(
+        'Storage is full. Try using a smaller photo or removing an unused apple.',
+      )
+      return
+    }
+    setMembers(next)
   }
 
   function closeModal() {
@@ -389,14 +367,14 @@ export default function FamilyTree({
       : null
 
   return (
-    <section className="family-tree-panel" aria-label="Lewis family tree">
+    <section className="family-tree-panel" aria-label="Dodgers family tree">
       <div className="family-tree-intro justify-between">
         <div className="flex items-center gap-3">
           <span className="family-tree-icon">
             <TreeGlyph name="family" size={22} />
           </span>
           <div>
-            <h3>The Lewis family</h3>
+            <h3>The Dodgers family</h3>
             <p>Tap anywhere on the tree to add an apple.</p>
           </div>
         </div>
@@ -738,7 +716,7 @@ export default function FamilyTree({
                   <input
                     value={formName}
                     onChange={(event) => setFormName(event.target.value.slice(0, 50))}
-                    placeholder="e.g. Clara Lewis"
+                    placeholder="e.g. Clara Dodgers"
                     required
                     className="w-full rounded-[13px] border border-[#e3e8dd] bg-[#fafbf8] px-3.5 py-2.5 text-[13px] text-[#455241] outline-none placeholder:text-[#afb7a8] focus:border-[#9eb48c]"
                   />
