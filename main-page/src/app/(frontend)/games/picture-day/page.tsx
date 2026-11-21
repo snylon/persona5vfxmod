@@ -1,7 +1,8 @@
 import { redirect } from 'next/navigation'
 
-// Picture Day now lives inside the main app shell (Games tab → Picture day card).
-// This route redirects back to the home page.
-export default function PictureDayRedirect() {
+// The Picture Day game lives in src/components/PictureDayGame.tsx and is
+// rendered inside the app shell via Games.tsx. Direct navigation here just
+// goes back to the home page.
+export default function PictureDayPage() {
   redirect('/')
 }

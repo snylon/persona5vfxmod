@@ -1,0 +1,7 @@
+# Python sidecar for YOLO object detection
+# Run:  py -3.13 -m pip install -r requirements.txt
+ultralytics==8.4.216
+opencv-python-headless==4.11.0.86
+fastapi==0.115.12
+uvicorn==0.34.3
+python-multipart==0.0.20
