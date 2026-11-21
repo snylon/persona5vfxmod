@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import FamilyTree from './FamilyTree'
 import LinkGateCard from './LinkGateCard'
+import CaregiverLocationCard from './CaregiverLocationCard'
 import type { Reminder, FamilyMember } from '@/app/(frontend)/page'
 import type { LinkActionResult } from '@/app/(frontend)/link-actions'
 import type { LinkedPartner, LinkState, SessionUser } from '@/lib/auth-store'
@@ -492,6 +493,9 @@ function OverviewPage({
           </ul>
         )}
       </div>
+
+      {/* Real-time GPS tracking (caregiver-only, Firebase Realtime Database) */}
+      <CaregiverLocationCard patientId={linkedPatient?.id} patientName={patientName} />
     </>
   )
 }

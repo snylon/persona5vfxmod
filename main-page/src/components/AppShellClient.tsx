@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import ReleafApp from '@/components/ReleafApp'
 import CaretakerApp from '@/components/CaretakerApp'
+import PatientLocationReporter from '@/components/PatientLocationReporter'
 import { signOutUserAction } from '@/app/(frontend)/sign-in/actions'
 import {
   getLinkStatusAction,
@@ -114,16 +115,24 @@ export default function AppShellClient({
   }
 
   return (
-    <ReleafApp
-      user={user}
-      linkState={linkState}
-      onRespondLinkRequest={handleRespondLinkRequest}
-      onSignOut={signOutUserAction}
-      reminders={reminders}
-      todoChecked={todoChecked}
-      setTodoChecked={setTodoChecked}
-      familyMembers={familyMembers}
-      setFamilyMembers={setFamilyMembers as React.Dispatch<React.SetStateAction<FamilyMember[]>>}
-    />
+    <>
+      <PatientLocationReporter
+        patientId={user.id}
+        patientName={user.name}
+        patientCode={linkState.patientCode || user.patientCode}
+        enabled={Boolean(linkState.linkedPartner)}
+      />
+      <ReleafApp
+        user={user}
+        linkState={linkState}
+        onRespondLinkRequest={handleRespondLinkRequest}
+        onSignOut={signOutUserAction}
+        reminders={reminders}
+        todoChecked={todoChecked}
+        setTodoChecked={setTodoChecked}
+        familyMembers={familyMembers}
+        setFamilyMembers={setFamilyMembers as React.Dispatch<React.SetStateAction<FamilyMember[]>>}
+      />
+    </>
   )
 }
