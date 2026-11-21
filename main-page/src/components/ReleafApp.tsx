@@ -230,9 +230,13 @@ function Sparkles() {
 
 function DailyCheckIn({ onClose, inline = false }: { onClose: () => void; inline?: boolean }) {
   const TOTAL = 5
-  const [questions, setQuestions] = useState<string[]>(() => pickQuestions(TOTAL))
+  const [questions, setQuestions] = useState<string[]>(() => ALL_CHECKIN_QUESTIONS.slice(0, TOTAL))
   const [step, setStep] = useState(0)
   const [inputVal, setInputVal] = useState('')
+
+  useEffect(() => {
+    setQuestions(pickQuestions(TOTAL))
+  }, [])
 
   const progress = step >= TOTAL ? 100 : Math.round((step / TOTAL) * 100)
   const done = step >= TOTAL
