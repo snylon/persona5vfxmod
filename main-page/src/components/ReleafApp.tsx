@@ -373,6 +373,7 @@ export default function App({ onSwitch, reminders = [], todoChecked = {}, setTod
   ])
   const [activity, setActivity] = useState(6420)
   const [toast, setToast] = useState('')
+  const [activeGame, setActiveGame] = useState<GameName | null>(null)
   const todayDisplayDate = new Intl.DateTimeFormat('en-US', {
     weekday: 'long',
     month: 'long',
@@ -614,7 +615,7 @@ export default function App({ onSwitch, reminders = [], todoChecked = {}, setTod
             </>
           )}
 
-          {page === 'Games' && <GameCards onPlay={(game) => setModal(game)} />}
+          {page === 'Games' && <GameCards onPlay={(game) => setActiveGame(game)} />}
 
           {page === 'Family tree' && (
             <FamilyTree
@@ -855,10 +856,27 @@ export default function App({ onSwitch, reminders = [], todoChecked = {}, setTod
           </button>
         </div>
       )}
+      {activeGame && (
+        <div className="game-fullscreen" role="dialog" aria-modal="true" aria-label={activeGame}>
+          <div className="game-fullscreen-header">
+            <span className="game-fullscreen-title">{activeGame}</span>
+            <button
+              className="game-fullscreen-exit"
+              onClick={() => setActiveGame(null)}
+              aria-label="Exit game"
+            >
+              <Icon name="close" size={20} />
+            </button>
+          </div>
+          <div className="game-fullscreen-body">
+            <Game key={activeGame} name={activeGame} />
+          </div>
+        </div>
+      )}
       {modal && (
         <div className="modal-backdrop" onClick={() => setModal(null)}>
           <section
-            className={`modal ${gameNames.includes(modal as GameName) ? 'game-modal' : ''}`}
+            className="modal"
             role="dialog"
             aria-modal="true"
             aria-labelledby="modal-title"
@@ -878,7 +896,7 @@ export default function App({ onSwitch, reminders = [], todoChecked = {}, setTod
             )}
             <h2 id="modal-title" className={modal === 'Daily check-in' ? 'checkin-modal-title' : ''}>{modal}</h2>
             {gameNames.includes(modal as GameName) ? (
-              <Game key={modal} name={modal as GameName} />
+              null
             ) : modal === 'Daily check-in' ? (
               <DailyCheckIn onClose={() => { setCheckInDone(true); setTodoChecked?.((prev) => ({ ...prev, checkin: true })); setModal(null) }} />
             ) : modal === 'A little help' ? (
