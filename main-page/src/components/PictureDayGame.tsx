@@ -64,9 +64,58 @@ interface DetectResponse {
 // Root — shows menu, then game
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function PictureDayRoot({ onComplete }: { onComplete?: () => void }) {
+export function PictureDayRoot({ onComplete, requireApproval }: { onComplete?: () => void; requireApproval?: (mode: Mode, onApprove: () => void, onDeny: () => void) => void }) {
   const [mode, setMode] = useState<Mode | null>(null)
-  if (!mode) return <PictureDayMenu onSelect={setMode} />
+  const [approved, setApproved] = useState(false)
+  const [denied, setDenied] = useState(false)
+
+  function handleModeSelect(selectedMode: Mode) {
+    if (selectedMode === 'outdoors' && requireApproval) {
+      setMode(selectedMode)
+      setApproved(false)
+      setDenied(false)
+      requireApproval(
+        selectedMode,
+        () => setApproved(true),
+        () => {
+          setDenied(true)
+          setTimeout(() => {
+            setMode(null)
+            setDenied(false)
+          }, 2000)
+        }
+      )
+    } else {
+      setMode(selectedMode)
+      setApproved(true)
+    }
+  }
+
+  if (!mode) return <PictureDayMenu onSelect={handleModeSelect} />
+  if (mode === 'outdoors' && !approved) {
+    return (
+      <>
+        <style>{pictureDayStyles}</style>
+        <section className="picture-day">
+          <div className="picture-day__approval">
+            {denied ? (
+              <>
+                <span className="picture-day__approval-icon picture-day__approval-icon--denied">✗</span>
+                <strong>Request denied</strong>
+                <span>The caretaker did not approve outdoor mode.</span>
+              </>
+            ) : (
+              <>
+                <span className="picture-day__approval-icon">⏱</span>
+                <strong>Waiting for approval</strong>
+                <span>The caretaker needs to approve outdoor mode before you can start.</span>
+              </>
+            )}
+          </div>
+        </section>
+      </>
+    )
+  }
   return <PictureDayGame mode={mode} onComplete={onComplete} />
 }
 
@@ -495,4 +544,23 @@ const pictureDayStyles = `
   .picture-day__menu-icon svg { width: 100%; height: 100%; }
   .picture-day__menu-option strong { font-size: 15px; font-weight: 700; color: #3f6249; }
   .picture-day__menu-option span   { font-size: 11px; color: #687b5e; text-align: center; }
+
+  .picture-day__approval {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 405px; padding: 40px 24px; background: #eaf0df; border-radius: 22px; text-align: center;
+  }
+  .picture-day__approval-icon {
+    display: flex; align-items: center; justify-content: center;
+    width: 64px; height: 64px; margin-bottom: 20px;
+    border-radius: 50%; background: #d9e4cc; font-size: 32px;
+  }
+  .picture-day__approval-icon--denied {
+    background: #f0d9d9; color: #b43c3c;
+  }
+  .picture-day__approval strong {
+    display: block; margin-bottom: 8px; font-size: 20px; color: #3f6249;
+  }
+  .picture-day__approval span {
+    display: block; font-size: 13px; color: #687b5e; line-height: 1.6;
+  }
 `

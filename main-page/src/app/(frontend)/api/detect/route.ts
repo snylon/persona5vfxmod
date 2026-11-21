@@ -14,6 +14,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 const SIDECAR_URL = process.env.YOLO_SIDECAR_URL ?? 'http://127.0.0.1:8000'
+const USE_MOCK = process.env.YOLO_USE_MOCK === 'true' || process.env.NODE_ENV === 'development'
 
 export async function POST(req: NextRequest) {
   // ── 1. Parse and validate the request body ────────────────────────────
@@ -32,7 +33,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Missing required field: target.' }, { status: 400 })
   }
 
-  // ── 2. Forward to the Python sidecar ─────────────────────────────────
+  // ── 2. Forward to the Python sidecar (or use mock in dev) ────────────
   let sidecarData: {
     success: boolean
     main_object: string | null
@@ -41,30 +42,58 @@ export async function POST(req: NextRequest) {
     error: string | null
   }
 
-  try {
-    const sidecarRes = await fetch(`${SIDECAR_URL}/detect`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ image }),
-      // Abort after 15 s so the game never hangs indefinitely
-      signal: AbortSignal.timeout(15_000),
-    })
+  if (USE_MOCK) {
+    // Mock detection for development when Python service isn't running
+    // Simulates successful detection ~80% of the time
+    const shouldMatch = Math.random() > 0.2
+    const targetLower = target.toLowerCase()
+    
+    if (shouldMatch) {
+      sidecarData = {
+        success: true,
+        main_object: targetLower,
+        all_objects: [targetLower],
+        confidence: 0.85 + Math.random() * 0.1,
+        error: null,
+      }
+    } else {
+      // Simulate detecting something else
+      const alternatives = ['book', 'bottle', 'chair', 'phone', 'laptop']
+      const detected = alternatives[Math.floor(Math.random() * alternatives.length)]
+      sidecarData = {
+        success: true,
+        main_object: detected,
+        all_objects: [detected],
+        confidence: 0.75,
+        error: null,
+      }
+    }
+  } else {
+    try {
+      const sidecarRes = await fetch(`${SIDECAR_URL}/detect`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image }),
+        // Abort after 15 s so the game never hangs indefinitely
+        signal: AbortSignal.timeout(15_000),
+      })
 
-    if (!sidecarRes.ok) {
-      const text = await sidecarRes.text()
+      if (!sidecarRes.ok) {
+        const text = await sidecarRes.text()
+        return NextResponse.json(
+          { error: `Detection service error (${sidecarRes.status}): ${text}` },
+          { status: 502 },
+        )
+      }
+
+      sidecarData = await sidecarRes.json()
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
       return NextResponse.json(
-        { error: `Detection service error (${sidecarRes.status}): ${text}` },
-        { status: 502 },
+        { error: `Could not reach detection service: ${message}` },
+        { status: 503 },
       )
     }
-
-    sidecarData = await sidecarRes.json()
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err)
-    return NextResponse.json(
-      { error: `Could not reach detection service: ${message}` },
-      { status: 503 },
-    )
   }
 
   // ── 3. Propagate detection errors from the sidecar ───────────────────

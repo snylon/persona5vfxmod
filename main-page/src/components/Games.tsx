@@ -91,11 +91,15 @@ export function GameCards({ onPlay }: { onPlay: (game: GameName) => void }) {
   )
 }
 
-export function Game({ name, onComplete }: { name: GameName; onComplete?: () => void }) {
+export function Game({ name, onComplete, onRequestApproval }: { 
+  name: GameName; 
+  onComplete?: () => void;
+  onRequestApproval?: (mode: 'indoors' | 'outdoors', onApprove: () => void, onDeny: () => void) => void;
+}) {
   if (name === 'Counting boxes') return <CountingBoxes />
   if (name === 'Colouring game') return <ColouringGame />
   if (name === 'Find the differences') return <Differences />
-  return <PictureDayRoot onComplete={onComplete} />
+  return <PictureDayRoot onComplete={onComplete} requireApproval={onRequestApproval} />
 }
 
 

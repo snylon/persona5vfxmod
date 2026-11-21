@@ -405,8 +405,23 @@ export default function App({ user, linkState, onRespondLinkRequest, onSignOut, 
   const [activity, setActivity] = useState(6420)
   const [toast, setToast] = useState('')
   const [activeGame, setActiveGame] = useState<GameName | null>(null)
+  const [pendingApproval, setPendingApproval] = useState<{ mode: 'indoors' | 'outdoors'; onApprove: () => void; onDeny: () => void } | null>(null)
+  
   function handlePlay(game: GameName) {
     setActiveGame(game)
+  }
+  
+  function handleApprovalRequest(mode: 'indoors' | 'outdoors', onApprove: () => void, onDeny: () => void) {
+    // In a real implementation, this would send a notification to the caretaker
+    // For now, we'll auto-approve after 2 seconds to simulate caretaker approval
+    setPendingApproval({ mode, onApprove, onDeny })
+    
+    // Simulate caretaker approval after 2 seconds
+    setTimeout(() => {
+      notify('Outdoor mode approved by caretaker')
+      onApprove()
+      setPendingApproval(null)
+    }, 2000)
   }
   const todayDisplayDate = new Intl.DateTimeFormat('en-US', {
     weekday: 'long',
@@ -1109,7 +1124,7 @@ export default function App({ user, linkState, onRespondLinkRequest, onSignOut, 
             </button>
           </div>
           <div className="game-fullscreen-body">
-            <Game key={activeGame} name={activeGame} onComplete={() => setActiveGame(null)} />
+            <Game key={activeGame} name={activeGame} onComplete={() => setActiveGame(null)} onRequestApproval={handleApprovalRequest} />
           </div>
         </div>
       )}
