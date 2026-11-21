@@ -319,7 +319,6 @@ function PictureDayMenu({
                 </svg>
               </span>
               <strong>Indoors</strong>
-              <span>Cup · Pen · Coat</span>
             </button>
 
             <button
@@ -344,7 +343,6 @@ function PictureDayMenu({
                 </svg>
               </span>
               <strong>Outdoors</strong>
-              <span>Tree · Shoes · Ball</span>
             </button>
           </div>
           {error && (
