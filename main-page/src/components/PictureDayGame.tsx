@@ -8,7 +8,7 @@
  * module and triggering HMR re-evaluation loops.
  */
 
-import { useState, useCallback } from 'react'
+import { useState } from 'react'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Prompt data
@@ -39,25 +39,6 @@ function shuffle<T>(arr: readonly T[]): T[] {
     ;[copy[i], copy[j]] = [copy[j], copy[i]]
   }
   return copy
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Detection types
-// ─────────────────────────────────────────────────────────────────────────────
-
-type DetectState =
-  | { status: 'idle' }
-  | { status: 'loading' }
-  | { status: 'matched';  detected: string | null; confidence: number | null }
-  | { status: 'no_match'; detected: string | null; all: string[] }
-  | { status: 'error';    message: string }
-
-interface DetectResponse {
-  matched: boolean
-  detected: string | null
-  all: string[]
-  confidence: number | null
-  error: string | null
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -248,19 +229,12 @@ function PictureDayGame({ mode, onComplete }: { mode: Mode; onComplete?: () => v
     () => Array(mode === 'indoors' ? INDOOR_PROMPTS.length : OUTDOOR_PROMPTS.length).fill(undefined),
   )
   const [page, setPage] = useState(0)
-  const [detectStates, setDetectStates] = useState<DetectState[]>(
-    () => Array(mode === 'indoors' ? INDOOR_PROMPTS.length : OUTDOOR_PROMPTS.length).fill({ status: 'idle' }),
-  )
-  const [pendingPhoto, setPendingPhoto] = useState<string | undefined>(undefined)
 
   const complete = page === prompts.length
   const prompt   = prompts[Math.min(page, prompts.length - 1)]
-  const ds       = detectStates[Math.min(page, prompts.length - 1)] ?? { status: 'idle' as const }
 
   function reset() {
     setPictures(Array(prompts.length).fill(undefined))
-    setDetectStates(Array(prompts.length).fill({ status: 'idle' }))
-    setPendingPhoto(undefined)
     setPage(0)
   }
 
@@ -276,65 +250,18 @@ function PictureDayGame({ mode, onComplete }: { mode: Mode; onComplete?: () => v
     })
 
     // Show photo immediately, set loading state
-    setPendingPhoto(dataUrl)
-    setDetectStates((prev) => prev.map((s, i) => (i === page ? { status: 'loading' } : s)))
+    setPictures((prev) => prev.map((p, i) => (i === page ? dataUrl : p)))
+  }
 
-    let data: DetectResponse
-    try {
-      const res = await fetch('/api/detect', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: dataUrl, target: prompt.object }),
-      })
-      if (!res.ok) {
-        const text = await res.text()
-        setDetectStates((prev) => prev.map((s, i) =>
-          i === page ? { status: 'error', message: `Server error ${res.status}: ${text}` } : s,
-        ))
-        return
-      }
-      data = await res.json()
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Unknown error'
-      setDetectStates((prev) => prev.map((s, i) =>
-        i === page ? { status: 'error', message: `Could not reach detection service. Is the Python sidecar running? (${message})` } : s,
-      ))
-      return
-    }
-
-    if (data.error) {
-      setDetectStates((prev) => prev.map((s, i) =>
-        i === page ? { status: 'error', message: data.error! } : s,
-      ))
-      return
-    }
-
-    if (data.matched) {
-      setPictures((prev) => prev.map((p, i) => (i === page ? dataUrl : p)))
-      setDetectStates((prev) => prev.map((s, i) =>
-        i === page ? { status: 'matched', detected: data.detected, confidence: data.confidence } : s,
-      ))
-      setPendingPhoto(undefined)
-      const nextPage = page + 1
-      window.setTimeout(() => {
-        setPage(nextPage)
-        if (nextPage === prompts.length) {
-          window.setTimeout(() => { reset(); onComplete?.() }, 1800)
-        }
-      }, 900)
-    } else {
-      setDetectStates((prev) => prev.map((s, i) =>
-        i === page ? { status: 'no_match', detected: data.detected, all: data.all } : s,
-      ))
+  function continueGame() {
+    const nextPage = page + 1
+    setPage(nextPage)
+    if (nextPage === prompts.length) {
+      onComplete?.()
     }
   }
 
-  function retake() {
-    setPendingPhoto(undefined)
-    setDetectStates((prev) => prev.map((s, i) => (i === page ? { status: 'idle' } : s)))
-  }
-
-  const shownPhoto = pendingPhoto ?? pictures[page]
+  const shownPhoto = pictures[page]
 
   return (
     <>
@@ -349,7 +276,7 @@ function PictureDayGame({ mode, onComplete }: { mode: Mode; onComplete?: () => v
                   type="button"
                   key={item.object}
                   className={[index === page ? 'is-current' : '', pictures[index] ? 'is-done' : ''].join(' ')}
-                  onClick={() => { if (pictures[index]) { setPendingPhoto(undefined); setPage(index) } }}
+                  onClick={() => { if (pictures[index]) { setPage(index) } }}
                   disabled={!pictures[index] && index !== page}
                   aria-label={`Go to picture ${index + 1}: ${item.title}`}
                   aria-current={index === page ? 'step' : undefined}
@@ -365,30 +292,7 @@ function PictureDayGame({ mode, onComplete }: { mode: Mode; onComplete?: () => v
               {!shownPhoto && <PromptIcon object={prompt.object} />}
 
               <div className="picture-day__copy">
-                {ds.status === 'loading' && (
-                  <span className="picture-day__status picture-day__status--loading" role="status" aria-live="polite">
-                    <span className="picture-day__spinner" aria-hidden="true" />
-                    Checking…
-                  </span>
-                )}
-                {ds.status === 'matched' && (
-                  <span className="picture-day__status picture-day__status--match" role="status" aria-live="polite">
-                    ✓ That&apos;s a {ds.detected ?? prompt.object}!
-                  </span>
-                )}
-                {ds.status === 'no_match' && (
-                  <span className="picture-day__status picture-day__status--nomatch" role="status" aria-live="polite">
-                    {ds.detected
-                      ? `Looks like a ${ds.detected} — try finding ${prompt.title.toLowerCase()}.`
-                      : 'No object recognised — try again.'}
-                  </span>
-                )}
-                {ds.status === 'error' && (
-                  <span className="picture-day__status picture-day__status--error" role="alert">
-                    {ds.message}
-                  </span>
-                )}
-                {ds.status === 'idle' && (
+                {prompt.title && (
                   <>
                     <strong>{prompt.title}</strong>
                     <span>{prompt.guidance}</span>
@@ -397,32 +301,27 @@ function PictureDayGame({ mode, onComplete }: { mode: Mode; onComplete?: () => v
               </div>
             </div>
 
-            {ds.status === 'loading' ? (
-              <button className="picture-day__take" disabled aria-disabled="true">
-                Checking your photo…
+            <label className="picture-day__take">
+              <input type="file" accept="image/*" capture="environment" onChange={handleFileChange} />
+              {shownPhoto ? 'Take it again' : 'Take a picture'}
+            </label>
+            {shownPhoto && (
+              <button type="button" className="picture-day__take" onClick={continueGame}>
+                {page === prompts.length - 1 ? 'Finish Picture Day' : 'Next picture'}
               </button>
-            ) : ds.status === 'no_match' || ds.status === 'error' ? (
-              <button type="button" className="picture-day__take" onClick={retake}>
-                Retake
-              </button>
-            ) : (
-              <label className="picture-day__take">
-                <input type="file" accept="image/*" capture="environment" onChange={handleFileChange} />
-                {shownPhoto ? 'Take it again' : 'Take a picture'}
-              </label>
             )}
           </>
         ) : (
           <>
             <div className="picture-day__complete">
               <strong>Picture day complete!</strong>
-              <span>You found all the objects.</span>
+              <span>All your pictures are saved for this session.</span>
               <div className="picture-day__gallery">
                 {pictures.map((picture, index) => (
                   <button
                     type="button"
                     key={prompts[index].object}
-                    onClick={() => { setPendingPhoto(undefined); setPage(index) }}
+                    onClick={() => { setPage(index) }}
                     aria-label={`View ${prompts[index].title.toLowerCase()}`}
                   >
                     {picture && (
