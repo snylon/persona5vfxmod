@@ -1,7 +1,10 @@
-import { useEffect, useRef, useState } from "react";
-import type { CSSProperties, FormEvent } from "react";
-import { Game, GameCards, gameNames } from "./Games";
-import type { GameName } from "./Games";
+'use client'
+
+import { useEffect, useRef, useState } from 'react'
+import type { CSSProperties, FormEvent } from 'react'
+import { Game, GameCards, gameNames } from './Games'
+import type { GameName } from './Games'
+import Journal from './Journal'
 
 function Icon({ name, size = 20, ...props }: { name: string; size?: number; className?: string }) {
   const paths: Record<string, React.ReactNode> = {
@@ -24,6 +27,12 @@ function Icon({ name, size = 20, ...props }: { name: string; size?: number; clas
         <circle cx="6" cy="19" r="3" />
         <circle cx="18" cy="19" r="3" />
         <path d="M12 8v4M6 16v-4h12v4" />
+      </>
+    ),
+    games: (
+      <>
+        <path d="M8 9h8a6 6 0 0 1 5.7 7.9l-.6 1.8a2.5 2.5 0 0 1-4.2.9L14.5 17h-5l-2.4 2.6a2.5 2.5 0 0 1-4.2-.9l-.6-1.8A6 6 0 0 1 8 9Z" />
+        <path d="M7 13v4m-2-2h4m7-1h.01m3 2h.01" />
       </>
     ),
     leaf: (
@@ -95,7 +104,7 @@ function Icon({ name, size = 20, ...props }: { name: string; size?: number; clas
       </>
     ),
     heart: <path d="M20 5c-3-3-7-1-8 1-1-2-5-4-8-1s-1 7 8 14c9-7 11-11 8-14Z" />,
-  };
+  }
   return (
     <svg
       width={size}
@@ -110,133 +119,139 @@ function Icon({ name, size = 20, ...props }: { name: string; size?: number; clas
     >
       {paths[name] || paths.leaf}
     </svg>
-  );
+  )
 }
 
 const initialHabits = [
   {
-    title: "Start the day with a glass of water",
-    detail: "A little hydration goes a long way",
-    icon: "water",
+    title: 'Start the day with a glass of water',
+    detail: 'A little hydration goes a long way',
+    icon: 'water',
     done: true,
   },
-  { title: "Take a mindful moment", detail: "5 minutes just for you", icon: "leaf", done: true },
+  { title: 'Take a mindful moment', detail: '5 minutes just for you', icon: 'leaf', done: true },
   {
-    title: "Get outside for a walk",
-    detail: "Fresh air, a fresh perspective",
-    icon: "steps",
+    title: 'Get outside for a walk',
+    detail: 'Fresh air, a fresh perspective',
+    icon: 'steps',
     done: false,
   },
-];
+]
 
 export default function App() {
-  const screenRef = useRef<HTMLElement>(null);
-  const [page, setPage] = useState("Overview");
-  const [habits, setHabits] = useState(initialHabits);
-  const [modal, setModal] = useState<string | null>(null);
-  const [reminders, setReminders] = useState(true);
-  const [period, setPeriod] = useState("This week");
-  const [mealTab, setMealTab] = useState("All meals");
+  const screenRef = useRef<HTMLElement>(null)
+  const [page, setPage] = useState('Overview')
+  const [habits, setHabits] = useState(initialHabits)
+  const [modal, setModal] = useState<string | null>(null)
+  const [reminders, setReminders] = useState(true)
+  const [period, setPeriod] = useState('This week')
+  const [mealTab, setMealTab] = useState('All meals')
   const [meals, setMeals] = useState([
     {
-      name: "Avocado toast & poached eggs",
-      type: "Breakfast",
-      time: "8:30 AM",
+      name: 'Avocado toast & poached eggs',
+      type: 'Breakfast',
+      time: '8:30 AM',
       calories: 420,
       protein: 22,
       carbs: 38,
       fats: 20,
     },
     {
-      name: "Green goddess bowl",
-      type: "Lunch",
-      time: "12:45 PM",
+      name: 'Green goddess bowl',
+      type: 'Lunch',
+      time: '12:45 PM',
       calories: 535,
       protein: 28,
       carbs: 62,
       fats: 18,
     },
-  ]);
-  const [activity, setActivity] = useState(6420);
-  const completed = habits.filter((h) => h.done).length;
-  const [toast, setToast] = useState("");
-  const dayAfterTomorrow = new Date();
-  dayAfterTomorrow.setDate(dayAfterTomorrow.getDate() + 2);
-  const displayDate = new Intl.DateTimeFormat("en-US", {
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  }).format(dayAfterTomorrow);
-  const dateValue = `${dayAfterTomorrow.getFullYear()}-${String(dayAfterTomorrow.getMonth() + 1).padStart(2, "0")}-${String(dayAfterTomorrow.getDate()).padStart(2, "0")}`;
+  ])
+  const [activity, setActivity] = useState(6420)
+  const completed = habits.filter((h) => h.done).length
+  const [toast, setToast] = useState('')
+  const todayDisplayDate = new Intl.DateTimeFormat('en-US', {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  }).format(new Date())
+  const dayAfterTomorrow = new Date()
+  dayAfterTomorrow.setDate(dayAfterTomorrow.getDate() + 2)
+  const displayDate = new Intl.DateTimeFormat('en-US', {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  }).format(dayAfterTomorrow)
+  const dateValue = `${dayAfterTomorrow.getFullYear()}-${String(dayAfterTomorrow.getMonth() + 1).padStart(2, '0')}-${String(dayAfterTomorrow.getDate()).padStart(2, '0')}`
   useEffect(() => {
-    screenRef.current?.scrollTo({ top: 0, behavior: "instant" });
-  }, [page]);
+    screenRef.current?.scrollTo({ top: 0, behavior: 'instant' })
+  }, [page])
   useEffect(() => {
-    if (!modal) return;
-    const screen = screenRef.current;
-    if (!screen) return;
-    const previous = screen.style.overflowY;
-    screen.style.overflowY = "hidden";
+    if (!modal) return
+    const screen = screenRef.current
+    if (!screen) return
+    const previous = screen.style.overflowY
+    screen.style.overflowY = 'hidden'
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setModal(null);
-    };
-    window.addEventListener("keydown", onKey);
+      if (event.key === 'Escape') setModal(null)
+    }
+    window.addEventListener('keydown', onKey)
     return () => {
-      screen.style.overflowY = previous;
-      window.removeEventListener("keydown", onKey);
-    };
-  }, [modal]);
+      screen.style.overflowY = previous
+      window.removeEventListener('keydown', onKey)
+    }
+  }, [modal])
   function notify(message: string) {
-    setToast(message);
-    window.setTimeout(() => setToast(""), 3500);
+    setToast(message)
+    window.setTimeout(() => setToast(''), 3500)
   }
   function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const data = new FormData(event.currentTarget);
-    if (modal === "Log a meal") {
+    event.preventDefault()
+    const data = new FormData(event.currentTarget)
+    if (modal === 'Log a meal') {
       setMeals([
         ...meals,
         {
-          name: String(data.get("name")),
-          type: String(data.get("type")),
-          time: "Just now",
-          calories: Number(data.get("calories")),
+          name: String(data.get('name')),
+          type: String(data.get('type')),
+          time: 'Just now',
+          calories: Number(data.get('calories')),
           protein: 15,
           carbs: 30,
           fats: 10,
         },
-      ]);
-      notify("Your meal has been added to today’s journal.");
-    } else if (modal === "Log activity") {
-      setActivity(activity + Number(data.get("steps")));
-      notify("A little movement, a little progress. Activity added!");
-    } else if (modal === "Add a habit") {
+      ])
+      notify('Your meal has been added to today’s journal.')
+    } else if (modal === 'Log activity') {
+      setActivity(activity + Number(data.get('steps')))
+      notify('A little movement, a little progress. Activity added!')
+    } else if (modal === 'Add a to-do') {
       setHabits([
         ...habits,
         {
-          title: String(data.get("name")),
-          detail: "Your daily moment of wellbeing",
-          icon: "heart",
+          title: String(data.get('name')),
+          detail: 'Added by you',
+          icon: 'heart',
           done: false,
         },
-      ]);
-      notify("Your new habit is ready for today.");
+      ])
+      notify('Your new to-do is ready for today.')
     } else {
-      setReminders(data.get("reminders") === "on");
-      notify("Your preferences have been updated.");
+      setReminders(data.get('reminders') === 'on')
+      notify('Your preferences have been updated.')
     }
-    setModal(null);
+    setModal(null)
   }
   return (
-    <div className={`app-shell app-${page.toLowerCase().replaceAll(" ", "-")}`}>
+    <div className={`app-shell app-${page.toLowerCase().replaceAll(' ', '-')}`}>
       <aside className="sidebar">
         <a
           className="brand"
           href="#"
           onClick={(e) => {
-            e.preventDefault();
-            setPage("Overview");
+            e.preventDefault()
+            setPage('Overview')
           }}
         >
           <span className="brand-symbol">
@@ -247,14 +262,15 @@ export default function App() {
         <div className="workspace-label">YOUR WELLNESS SPACE</div>
         <nav aria-label="Main navigation">
           {[
-            { name: "Overview", label: "Home", icon: "grid" },
-            { name: "Family tree", label: "Family tree", icon: "family" },
-            { name: "Food journal", label: "Journal", icon: "journal" },
+            { name: 'Overview', label: 'Home', icon: 'grid' },
+            { name: 'Games', label: 'Games', icon: 'games' },
+            { name: 'Family tree', label: 'Family tree', icon: 'family' },
+            { name: 'Food journal', label: 'Journal', icon: 'journal' },
           ].map((item) => (
             <button
-              className={`nav-item ${page === item.name ? "active" : ""}`}
+              className={`nav-item ${page === item.name ? 'active' : ''}`}
               onClick={() => setPage(item.name)}
-              aria-current={page === item.name ? "page" : undefined}
+              aria-current={page === item.name ? 'page' : undefined}
               key={item.name}
             >
               <Icon name={item.icon} />
@@ -282,15 +298,15 @@ export default function App() {
               Keep growing at your own pace.
             </p>
           </div>
-          <button className="nav-item" onClick={() => setModal("Settings")}>
+          <button className="nav-item" onClick={() => setModal('Settings')}>
             <Icon name="settings" />
             Settings
           </button>
-          <button className="nav-item" onClick={() => setModal("A little help")}>
+          <button className="nav-item" onClick={() => setModal('A little help')}>
             <Icon name="help" />
             Help & support
           </button>
-          <button className="profile" onClick={() => setModal("Settings")}>
+          <button className="profile" onClick={() => setModal('Settings')}>
             <span className="avatar">JL</span>
             <span>
               <strong>Jamie Lewis</strong>
@@ -305,35 +321,36 @@ export default function App() {
         <div className="page-content">
           <section className="page-heading">
             <div>
-              <div className="eyebrow">{displayDate.toUpperCase()}</div>
+              {page !== 'Family tree' && page !== 'Food journal' && (
+                <div className="eyebrow">{todayDisplayDate.toUpperCase()}</div>
+              )}
               <h1>
-                {page === "Overview"
-                  ? "Hi, Jamie!"
-                  : page === "Family tree"
-                    ? "Your family tree."
-                    : "Nourish your everyday."}
-                <span className="heading-spark">
-                  <Icon name="cloud" size={28} />
-                </span>
+                {page === 'Overview'
+                  ? 'Hi, Jamie!'
+                  : page === 'Games'
+                    ? 'Your games.'
+                  : page === 'Family tree'
+                    ? 'Your family tree.'
+                    : 'Your life, one page at a time.'}
+                {page === 'Overview' && (
+                  <span className="heading-spark" aria-hidden="true">
+                    <Icon name="cloud" size={28} />
+                  </span>
+                )}
               </h1>
-              <p>
-                {page === "Overview"
-                  ? "It’s chilly today, make sure to stay warm."
-                  : page === "Family tree"
-                    ? "The people and stories that make you, you."
-                    : "A mindful look at what’s fueling your day."}
-              </p>
+              {page !== 'Family tree' && (
+                <p>
+                  {page === 'Overview'
+                    ? 'It’s chilly today, make sure to stay warm.'
+                    : page === 'Games'
+                      ? 'Choose a little game and play at your own pace.'
+                      : 'Write it, say it, and remember what made today yours.'}
+                </p>
+              )}
             </div>
-            <button
-              className="date-button"
-              aria-label="Notifications"
-              onClick={() => notify("You’re all caught up. No new notifications.")}
-            >
-              <Icon name="bell" size={20} />
-            </button>
           </section>
 
-          {(page === "Overview" || page === "My progress") && (
+          {(page === 'Overview' || page === 'My progress') && (
             <>
               <div className="intro-grid">
                 <section className="welcome-card">
@@ -351,7 +368,7 @@ export default function App() {
                       <br />
                       And that’s a beautiful place to start.
                     </p>
-                    <button onClick={() => setPage("Daily habits")}>
+                    <button onClick={() => setPage('Daily habits')}>
                       Let’s keep growing <Icon name="arrow" size={17} />
                     </button>
                   </div>
@@ -385,7 +402,7 @@ export default function App() {
                     <span className="mini-badge">You’ve got this</span>
                   </div>
                   <div className="plan-body">
-                    <div className="progress-ring" style={{ "--progress": "50%" } as CSSProperties}>
+                    <div className="progress-ring" style={{ '--progress': '50%' } as CSSProperties}>
                       <div>
                         <strong>
                           <span className="progress-percent">
@@ -398,7 +415,7 @@ export default function App() {
                     <button
                       className="plan-arrow-button"
                       aria-label="Continue with Counting boxes"
-                      onClick={() => setModal("Counting boxes")}
+                      onClick={() => setModal('Counting boxes')}
                     >
                       <Icon name="arrow" size={23} />
                     </button>
@@ -409,11 +426,12 @@ export default function App() {
                 </section>
               </div>
 
-              <GameCards onPlay={(game) => setModal(game)} />
             </>
           )}
 
-          {page === "Family tree" && (
+          {page === 'Games' && <GameCards onPlay={(game) => setModal(game)} />}
+
+          {page === 'Family tree' && (
             <section className="family-tree-panel" aria-label="Lewis family tree">
               <div className="family-tree-intro">
                 <span className="family-tree-icon">
@@ -421,60 +439,74 @@ export default function App() {
                 </span>
                 <div>
                   <h3>The Lewis family</h3>
-                  <p>Three generations, connected with care.</p>
                 </div>
               </div>
               <div className="family-tree">
-                <div className="family-generation grandparents">
-                  <div className="family-person">
-                    <span className="family-avatar sage">ML</span>
+                <svg
+                  className="family-tree-branches"
+                  viewBox="0 0 320 440"
+                  preserveAspectRatio="none"
+                  aria-hidden="true"
+                >
+                  <path
+                    className="tree-ground"
+                    d="M57 436C83 423 104 417 123 414C137 372 143 337 142 292C141 257 137 230 131 208C117 192 99 178 79 168L91 151C117 166 139 181 154 203C153 163 154 125 159 84H176C180 126 179 164 176 204C194 180 216 163 245 147L254 163C225 181 200 201 184 225C180 255 178 280 179 307C181 353 187 391 199 422C224 429 252 432 282 432C257 445 224 446 190 439C179 437 171 434 164 431C151 438 142 441 126 439C102 436 81 440 57 436Z"
+                  />
+                  <g className="tree-limbs">
+                    <path d="M158 143C127 105 91 83 47 73" />
+                    <path d="M162 161C197 119 233 98 279 88" />
+                    <path d="M158 229C120 199 82 188 34 194" />
+                    <path d="M162 246C205 211 246 201 289 211" />
+                    <path d="M158 313C127 285 99 284 71 307" />
+                    <path d="M162 324C194 294 224 296 255 320" />
+                  </g>
+                  <path
+                    className="tree-canopy"
+                    d="M18 257C3 238 8 211 29 201C10 177 22 147 50 141C38 115 56 88 85 87C82 56 109 37 137 49C151 22 188 22 204 49C231 28 267 43 270 74C299 73 316 99 304 123C329 137 331 169 311 187C331 209 320 241 294 247C302 278 276 301 248 291C236 319 204 329 181 307C163 332 128 326 117 301C91 319 58 302 60 274C38 287 17 278 18 257Z"
+                  />
+                </svg>
+                <div className="family-tree-members">
+                  <div className="family-person member-margaret">
+                    <small className="family-relation">Grandmother</small>
+                    <span className="family-avatar apple">ML</span>
                     <strong>Margaret</strong>
-                    <small>Grandmother</small>
                   </div>
-                  <div className="family-person">
-                    <span className="family-avatar blue">RL</span>
+                  <div className="family-person member-robert">
+                    <small className="family-relation">Grandfather</small>
+                    <span className="family-avatar berry">RL</span>
                     <strong>Robert</strong>
-                    <small>Grandfather</small>
                   </div>
-                </div>
-                <div className="family-branch branch-top" aria-hidden="true" />
-                <div className="family-generation parents">
-                  <div className="family-person">
+                  <div className="family-person member-sarah">
+                    <small className="family-relation">Mother</small>
                     <span className="family-avatar peach">SL</span>
                     <strong>Sarah</strong>
-                    <small>Mother</small>
                   </div>
-                  <div className="family-person">
-                    <span className="family-avatar lavender">DL</span>
+                  <div className="family-person member-daniel">
+                    <small className="family-relation">Father</small>
+                    <span className="family-avatar plum">DL</span>
                     <strong>Daniel</strong>
-                    <small>Father</small>
                   </div>
-                </div>
-                <div className="family-branch branch-bottom" aria-hidden="true" />
-                <div className="family-generation children">
-                  <div className="family-person current">
-                    <span className="family-avatar green">JL</span>
+                  <div className="family-person member-jamie current">
+                    <small className="family-relation">You</small>
+                    <span className="family-avatar pear">JL</span>
                     <strong>Jamie</strong>
-                    <small>You</small>
                   </div>
-                  <div className="family-person">
-                    <span className="family-avatar yellow">AL</span>
+                  <div className="family-person member-alex">
+                    <small className="family-relation">Sibling</small>
+                    <span className="family-avatar lemon">AL</span>
                     <strong>Alex</strong>
-                    <small>Sibling</small>
                   </div>
                 </div>
-              </div>
-              <div className="family-tree-note">
-                <Icon name="leaf" size={16} />
-                Every branch holds a story worth remembering.
               </div>
             </section>
           )}
 
+          {page === 'Food journal' && <Journal />}
+
           <div
-            className={`lower-grid ${page === "My progress" || page === "Daily habits" || page === "Food journal" ? "single-view" : ""}`}
+            className={`lower-grid ${page === 'My progress' || page === 'Daily habits' || page === 'Food journal' ? 'single-view' : ''}`}
           >
-            {(page === "Overview" || page === "My progress") && (
+            {(page === 'Overview' || page === 'My progress') && (
               <section className="panel weekly-panel">
                 <div className="section-top">
                   <div>
@@ -514,12 +546,12 @@ export default function App() {
                       <i />
                       <i />
                     </div>
-                    {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day, i) => (
-                      <div className={`chart-day ${i === 0 ? "today" : ""}`} key={day}>
+                    {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day, i) => (
+                      <div className={`chart-day ${i === 0 ? 'today' : ''}`} key={day}>
                         <div className="bar-pair">
                           <span
                             style={{
-                              height: `${(period === "This week" ? [66, 80, 61, 90, 71, 96, 45] : [45, 56, 75, 60, 83, 76, 67])[i]}%`,
+                              height: `${(period === 'This week' ? [66, 80, 61, 90, 71, 96, 45] : [45, 56, 75, 60, 83, 76, 67])[i]}%`,
                             }}
                           />
                           <span style={{ height: `${[53, 65, 73, 64, 86, 79, 58][i]}%` }} />
@@ -541,27 +573,25 @@ export default function App() {
               </section>
             )}
 
-            {(page === "Overview" || page === "Daily habits") && (
+            {(page === 'Overview' || page === 'Daily habits') && (
               <section className="panel habits-panel">
                 <div className="section-top">
                   <div>
-                    <h3>Feel-good habits</h3>
+                    <h3>To-do list</h3>
                     <p>Small rituals, made for you.</p>
                   </div>
                   <button
                     className="text-button"
-                    onClick={() =>
-                      page === "Daily habits" ? setModal("Add a habit") : setPage("Daily habits")
-                    }
+                    onClick={() => setModal('Add a to-do')}
                   >
-                    {page === "Daily habits" ? "Add habit" : "View all"}
-                    <Icon name={page === "Daily habits" ? "plus" : "arrow"} size={16} />
+                    Add to-do
+                    <Icon name="plus" size={16} />
                   </button>
                 </div>
                 <div className="habit-list">
                   {habits.map((habit, i) => (
                     <button
-                      className={`habit-row ${habit.done ? "done" : ""}`}
+                      className={`habit-row ${habit.done ? 'done' : ''}`}
                       key={i}
                       onClick={() =>
                         setHabits(habits.map((h, n) => (n === i ? { ...h, done: !h.done } : h)))
@@ -585,13 +615,13 @@ export default function App() {
                     <Icon name="sun" size={14} />
                   </span>
                   <span>
-                    {completed} of {habits.length} habits complete. You’re doing beautifully.
+                    {completed} of {habits.length} to-dos complete. You’re doing beautifully.
                   </span>
                 </div>
               </section>
             )}
 
-            {(page === "Overview" || page === "Food journal") && (
+            {page === 'Overview' && (
               <section className="panel food-panel">
                 <div className="section-top">
                   <div className="food-title">
@@ -603,16 +633,16 @@ export default function App() {
                       <p>Good food. Good energy. Good you.</p>
                     </div>
                   </div>
-                  <button className="log-meal-button" onClick={() => setModal("Log a meal")}>
+                  <button className="log-meal-button" onClick={() => setModal('Log a meal')}>
                     <Icon name="plus" size={16} />
                     Log a meal
                   </button>
                 </div>
                 <div className="food-tabs">
-                  {["All meals", "Breakfast", "Lunch", "Dinner", "Snacks"].map((tab) => (
+                  {['All meals', 'Breakfast', 'Lunch', 'Dinner', 'Snacks'].map((tab) => (
                     <button
                       key={tab}
-                      className={mealTab === tab ? "selected" : ""}
+                      className={mealTab === tab ? 'selected' : ''}
                       onClick={() => setMealTab(tab)}
                     >
                       {tab}
@@ -629,12 +659,12 @@ export default function App() {
                     <span />
                   </div>
                   {meals
-                    .filter((m) => mealTab === "All meals" || m.type === mealTab)
+                    .filter((m) => mealTab === 'All meals' || m.type === mealTab)
                     .map((meal, i) => (
                       <div className="meal-row" key={i}>
                         <div className="meal-info">
                           <div className={`meal-art meal-art-${i % 2}`}>
-                            <Icon name={i % 2 ? "leaf" : "sun"} size={26} />
+                            <Icon name={i % 2 ? 'leaf' : 'sun'} size={26} />
                           </div>
                           <div>
                             <strong>{meal.name}</strong>
@@ -664,11 +694,11 @@ export default function App() {
                         <Icon name="check" size={17} />
                       </div>
                     ))}
-                  {meals.filter((m) => mealTab === "All meals" || m.type === mealTab).length ===
+                  {meals.filter((m) => mealTab === 'All meals' || m.type === mealTab).length ===
                     0 && (
                     <div className="empty-meals">
-                      A fresh page for your {mealTab.toLowerCase()}.{" "}
-                      <button onClick={() => setModal("Log a meal")}>
+                      A fresh page for your {mealTab.toLowerCase()}.{' '}
+                      <button onClick={() => setModal('Log a meal')}>
                         Log your first meal <Icon name="plus" size={14} />
                       </button>
                     </div>
@@ -691,7 +721,7 @@ export default function App() {
             <Icon name="check" size={17} />
           </span>
           {toast}
-          <button onClick={() => setToast("")} aria-label="Dismiss">
+          <button onClick={() => setToast('')} aria-label="Dismiss">
             <Icon name="close" size={16} />
           </button>
         </div>
@@ -699,7 +729,7 @@ export default function App() {
       {modal && (
         <div className="modal-backdrop" onClick={() => setModal(null)}>
           <section
-            className={`modal ${gameNames.includes(modal as GameName) ? "game-modal" : ""}`}
+            className={`modal ${gameNames.includes(modal as GameName) ? 'game-modal' : ''}`}
             role="dialog"
             aria-modal="true"
             aria-labelledby="modal-title"
@@ -718,7 +748,7 @@ export default function App() {
             <h2 id="modal-title">{modal}</h2>
             {gameNames.includes(modal as GameName) ? (
               <Game key={modal} name={modal as GameName} />
-            ) : modal === "A little help" ? (
+            ) : modal === 'A little help' ? (
               <>
                 <p>
                   Bloom is your little space for everyday wellbeing. Add water with the + button,
@@ -732,7 +762,7 @@ export default function App() {
                   Got it, let’s grow
                 </button>
               </>
-            ) : modal === "Take Bloom with you" ? (
+            ) : modal === 'Take Bloom with you' ? (
               <>
                 <p>
                   Your little wellness space, right on your home screen. Open the published Bloom
@@ -760,7 +790,7 @@ export default function App() {
                   <Icon name="leaf" size={17} />
                 </button>
               </>
-            ) : modal === "Choose a date" ? (
+            ) : modal === 'Choose a date' ? (
               <>
                 <p>Your wellness snapshot for {displayDate}.</p>
                 <input type="date" defaultValue={dateValue} max={dateValue} min={dateValue} />
@@ -772,15 +802,15 @@ export default function App() {
             ) : (
               <form onSubmit={submit}>
                 <p>
-                  {modal === "Log a meal"
-                    ? "A little goodness for your food journal."
-                    : modal === "Log activity"
-                      ? "Every step counts. Add a little movement."
-                      : modal === "Add a habit"
-                        ? "Make a little space for something good."
-                        : "Make this little space your own."}
+                  {modal === 'Log a meal'
+                    ? 'A little goodness for your food journal.'
+                    : modal === 'Log activity'
+                      ? 'Every step counts. Add a little movement.'
+                      : modal === 'Add a to-do'
+                        ? 'Make a little space for something good.'
+                        : 'Make this little space your own.'}
                 </p>
-                {modal === "Log a meal" ? (
+                {modal === 'Log a meal' ? (
                   <>
                     <label>
                       What did you have?
@@ -795,7 +825,7 @@ export default function App() {
                       <label>
                         Meal
                         <select name="type">
-                          {["Breakfast", "Lunch", "Dinner", "Snacks"].map((t) => (
+                          {['Breakfast', 'Lunch', 'Dinner', 'Snacks'].map((t) => (
                             <option key={t}>{t}</option>
                           ))}
                         </select>
@@ -813,7 +843,7 @@ export default function App() {
                       </label>
                     </div>
                   </>
-                ) : modal === "Log activity" ? (
+                ) : modal === 'Log activity' ? (
                   <label>
                     Steps to add
                     <input
@@ -826,10 +856,10 @@ export default function App() {
                       autoFocus
                     />
                   </label>
-                ) : modal === "Add a habit" ? (
+                ) : modal === 'Add a to-do' ? (
                   <label>
-                    Your new daily habit
-                    <input name="name" placeholder="e.g. Read a few pages" required autoFocus />
+                    What do you need to do?
+                    <input name="name" placeholder="e.g. Call Sarah at 3 PM" required autoFocus />
                   </label>
                 ) : (
                   <>
@@ -845,11 +875,11 @@ export default function App() {
                   </>
                 )}
                 <button className="primary-button" type="submit">
-                  {modal === "Settings"
-                    ? "Save preferences"
-                    : modal === "Add a habit"
-                      ? "Add to my habits"
-                      : "Add to my day"}
+                  {modal === 'Settings'
+                    ? 'Save preferences'
+                    : modal === 'Add a to-do'
+                      ? 'Add to my list'
+                      : 'Add to my day'}
                   <Icon name="arrow" size={17} />
                 </button>
               </form>
@@ -858,5 +888,5 @@ export default function App() {
         </div>
       )}
     </div>
-  );
+  )
 }

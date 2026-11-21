@@ -1,9 +1,9 @@
-@import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;450;500;550;600;650;700&family=Manrope:wght@400;500;600;650;700;750;800&display=swap");
-@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;450;500;550;600;650;700&family=Manrope:wght@400;500;600;650;700;750;800&display=swap');
+@import 'tailwindcss';
 
 @layer base {
   body {
-    font-family: "DM Sans", sans-serif;
+    font-family: 'DM Sans', sans-serif;
     color: #303d35;
     background: #f8f9f5;
     font-size: 14px;
@@ -40,7 +40,7 @@
   h1,
   h2,
   h3 {
-    font-family: "Manrope", sans-serif;
+    font-family: 'Manrope', sans-serif;
   }
   input,
   select {
@@ -67,7 +67,7 @@
   display: flex;
   align-items: center;
   text-decoration: none;
-  font-family: "Manrope", sans-serif;
+  font-family: 'Manrope', sans-serif;
   font-weight: 800;
   letter-spacing: -1.7px;
   font-size: 34px;
@@ -534,7 +534,7 @@ h3 {
   display: flex;
   flex-direction: column;
   align-items: center;
-  font-family: "Manrope", sans-serif;
+  font-family: 'Manrope', sans-serif;
   font-size: 29px;
   font-weight: 600;
   line-height: 1;
@@ -640,7 +640,7 @@ h3 {
   color: #7093a0;
 }
 .metric-value {
-  font-family: "Manrope", sans-serif;
+  font-family: 'Manrope', sans-serif;
   font-size: 29px;
   letter-spacing: -1.2px;
   font-weight: 550;
@@ -648,7 +648,7 @@ h3 {
   white-space: nowrap;
 }
 .metric-value small {
-  font-family: "DM Sans", sans-serif;
+  font-family: 'DM Sans', sans-serif;
   font-size: 11px;
   color: #8d9780;
   letter-spacing: 0;
@@ -1942,7 +1942,7 @@ h3 {
 }
 .sidebar nav {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   height: 66px;
   gap: 4px;
 }
@@ -1990,7 +1990,7 @@ main {
   display: flex;
   align-items: center;
   gap: 7px;
-  font-family: "Manrope", sans-serif;
+  font-family: 'Manrope', sans-serif;
   font-weight: 800;
   font-size: 28px;
   letter-spacing: -1.6px;
@@ -2184,7 +2184,7 @@ h3,
   display: block;
   width: auto;
   margin: 3px 0 0;
-  font-family: "DM Sans", sans-serif;
+  font-family: 'DM Sans', sans-serif;
   font-size: 7px;
   font-weight: 500;
   letter-spacing: 0;
@@ -2346,6 +2346,23 @@ h3,
 .app-overview .welcome-card,
 .app-my-progress .intro-grid {
   display: none;
+}
+.app-overview .page-content {
+  display: flex;
+  flex-direction: column;
+}
+.app-overview .page-heading {
+  order: 0;
+}
+.app-overview .lower-grid {
+  order: 1;
+  margin-bottom: 16px;
+}
+.app-overview .intro-grid {
+  order: 2;
+}
+.app-overview .page-footer {
+  order: 3;
 }
 .text-button {
   font-size: 11px;
@@ -2553,102 +2570,197 @@ h3,
   color: #789063;
 }
 .family-tree {
-  padding: 19px 12px 17px;
-  border-radius: 20px;
-  background: #f7f8f3;
-}
-.family-generation {
   position: relative;
-  z-index: 1;
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 26px;
+  isolation: isolate;
+  overflow: hidden;
+  min-height: 470px;
+  padding: 0;
+  border-radius: 20px;
+  background: linear-gradient(180deg, #faf9f4 0%, #f1f5ea 100%);
+}
+.family-tree-branches {
+  position: absolute;
+  z-index: 0;
+  inset: 14px 6px 0;
+  width: calc(100% - 12px);
+  height: calc(100% - 14px);
+  overflow: visible;
+}
+.tree-limbs path {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+.tree-limbs {
+  fill: none;
+  stroke: #c5a28b;
+  stroke-width: 11px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+.tree-ground {
+  fill: #c5a28b;
+  stroke: #ad8a73;
+  stroke-width: 2.5px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+.tree-canopy {
+  fill: #c5ddb4;
+  stroke: #9db78d;
+  stroke-width: 3px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+.family-tree-members {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
 }
 .family-person {
+  position: absolute;
   display: flex;
-  min-width: 0;
+  width: 86px;
   flex-direction: column;
   align-items: center;
   text-align: center;
 }
+.family-relation {
+  position: absolute;
+  top: -17px;
+  left: 50%;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: #fffdf8c7;
+  color: #75816d;
+  font-size: 8px;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+  transform: translateX(-50%);
+}
+.member-margaret {
+  top: 38px;
+  left: 18px;
+}
+.member-robert {
+  top: 52px;
+  right: 15px;
+}
+.member-sarah {
+  top: 164px;
+  left: 4px;
+}
+.member-daniel {
+  top: 181px;
+  right: 3px;
+}
+.member-jamie {
+  top: 286px;
+  left: 44px;
+}
+.member-alex {
+  top: 301px;
+  right: 38px;
+}
 .family-avatar {
+  position: relative;
   display: grid;
-  width: 52px;
-  height: 52px;
+  width: 58px;
+  height: 56px;
   place-items: center;
-  border: 4px solid #fff;
-  border-radius: 50%;
-  background: #dce7ce;
-  box-shadow: 0 4px 12px #5e735017;
-  color: #647b51;
+  border: 4px solid #fffdf8;
+  border-radius: 48% 52% 47% 53% / 43% 44% 56% 57%;
+  background: #df806f;
+  box-shadow:
+    inset 8px 7px 0 #ffffff2e,
+    inset -7px -7px 0 #6e44311a,
+    0 7px 14px #5e735026;
+  color: #7b4136;
   font-size: 11px;
   font-weight: 700;
+  letter-spacing: 0.4px;
 }
-.family-avatar.blue {
-  background: #d9ebef;
-  color: #668793;
+.family-avatar::before {
+  content: '';
+  position: absolute;
+  top: -10px;
+  left: 50%;
+  width: 5px;
+  height: 13px;
+  border-radius: 5px;
+  background: #76563e;
+  transform: translateX(-50%) rotate(6deg);
+  transform-origin: bottom;
+}
+.family-avatar::after {
+  content: '';
+  position: absolute;
+  top: -9px;
+  left: calc(50% + 2px);
+  width: 16px;
+  height: 9px;
+  border-radius: 100% 0 100% 0;
+  background: #78995f;
+  box-shadow: inset -2px -2px 0 #4f71392e;
+  transform: rotate(-15deg);
+}
+.family-avatar.apple {
+  background: #e99880;
+  color: #7d4438;
+}
+.family-avatar.berry {
+  border-radius: 50%;
+  background: #9aaed1;
+  color: #4e6080;
 }
 .family-avatar.peach {
-  background: #f1dfd1;
-  color: #98755e;
+  border-radius: 50% 50% 46% 54% / 45% 44% 56% 55%;
+  background: #efb28f;
+  color: #8e5c45;
 }
-.family-avatar.lavender {
-  background: #e4deec;
-  color: #7c6c8a;
+.family-avatar.plum {
+  border-radius: 48% 52% 50% 50% / 42% 44% 56% 58%;
+  background: #b69cbe;
+  color: #65506e;
 }
-.family-avatar.green {
-  background: #cfe1bc;
-  color: #53743e;
+.family-avatar.pear {
+  width: 55px;
+  border-radius: 44% 56% 52% 48% / 36% 38% 62% 64%;
+  background: #b8ce7d;
+  color: #506b30;
 }
-.family-avatar.yellow {
-  background: #f0e8c4;
-  color: #927f43;
+.family-avatar.lemon {
+  border-radius: 44% 56% 48% 52% / 50% 48% 52% 50%;
+  background: #ead477;
+  color: #776426;
 }
 .family-person strong {
-  margin-top: 7px;
+  margin-top: 9px;
+  padding: 3px 8px 2px;
   overflow: hidden;
   max-width: 100%;
-  color: #596653;
-  font-family: "Manrope", sans-serif;
+  border-radius: 999px;
+  background: #fffdf8cc;
+  box-shadow: 0 2px 7px #61734f12;
+  color: #53624d;
+  font-family: 'Manrope', sans-serif;
   font-size: 11px;
   text-overflow: ellipsis;
 }
-.family-person small {
-  margin-top: 2px;
-  color: #9ca592;
-  font-size: 8px;
-}
 .family-person.current .family-avatar {
   box-shadow:
-    0 0 0 3px #dfeacf,
-    0 4px 12px #5e735017;
+    inset 8px 7px 0 #ffffff2e,
+    inset -7px -7px 0 #6e44311a,
+    0 0 0 3px #e8f0d8,
+    0 7px 14px #5e735026;
 }
 .family-person.current strong {
   color: #557141;
-}
-.family-branch {
-  position: relative;
-  width: 50%;
-  height: 43px;
-  margin: 0 auto;
-  border-right: 1.5px solid #bdcab0;
-  border-bottom: 1.5px solid #bdcab0;
-  border-left: 1.5px solid #bdcab0;
-}
-.family-branch::before,
-.family-branch::after {
-  content: "";
-  position: absolute;
-  bottom: -1px;
-  width: 1.5px;
-  height: 12px;
-  background: #bdcab0;
-}
-.family-branch::before {
-  left: -1.5px;
-}
-.family-branch::after {
-  right: -1.5px;
 }
 .family-tree-note {
   display: flex;
@@ -2704,7 +2816,7 @@ h3,
   border-bottom: 0;
 }
 .modal::before {
-  content: "";
+  content: '';
   width: 36px;
   height: 4px;
   background: #dce3d3;
@@ -2852,7 +2964,7 @@ h3,
   transform: rotate(-3deg);
 }
 .picture-card-camera::before {
-  content: "";
+  content: '';
   position: absolute;
   width: 25px;
   height: 8px;
@@ -2872,7 +2984,7 @@ h3,
   background: #9f91b5;
 }
 .picture-card-camera i::after {
-  content: "";
+  content: '';
   position: absolute;
   width: 5px;
   height: 5px;
@@ -2882,7 +2994,7 @@ h3,
   background: #f1edf4;
 }
 .game-card > strong {
-  font-family: "Manrope", sans-serif;
+  font-family: 'Manrope', sans-serif;
   font-size: 14px;
   font-weight: 700;
   letter-spacing: -0.4px;
@@ -3094,7 +3206,7 @@ h3,
 }
 .picture-prompt > strong {
   color: #756683;
-  font-family: "Manrope", sans-serif;
+  font-family: 'Manrope', sans-serif;
   font-size: 16px;
   line-height: 1.45;
 }
@@ -3124,7 +3236,7 @@ h3,
   place-items: center;
   border-radius: 50%;
   background: #e4ddeb;
-  font-family: "Manrope", sans-serif;
+  font-family: 'Manrope', sans-serif;
   font-size: 12px;
   font-weight: 700;
 }
@@ -3184,7 +3296,7 @@ h3,
   background: #8d7c9d;
 }
 .picture-button-icon::before {
-  content: "";
+  content: '';
   position: absolute;
   top: -4px;
   left: 4px;
