@@ -141,7 +141,6 @@ function PictureDayMenu({ onSelect }: { onSelect: (mode: Mode) => void }) {
                 </svg>
               </span>
               <strong>Indoors</strong>
-              <span>Cup · Pen · Coat</span>
             </button>
 
             <button type="button" className="picture-day__menu-option" onClick={() => onSelect('outdoors')}>
@@ -154,7 +153,6 @@ function PictureDayMenu({ onSelect }: { onSelect: (mode: Mode) => void }) {
                 </svg>
               </span>
               <strong>Outdoors</strong>
-              <span>Tree · Shoes · Ball</span>
             </button>
 
           </div>

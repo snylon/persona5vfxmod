@@ -4813,3 +4813,443 @@ h3,
   color: #5a7045;
 }
 
+
+/* Flow Connect Game Styles */
+.flow-game {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  max-width: 500px;
+  margin: 0 auto;
+}
+
+.flow-info {
+  display: flex;
+  justify-content: space-around;
+  font-size: 11px;
+  color: #7a8b6f;
+  padding: 10px;
+  background: #f5f8f0;
+  border-radius: 10px;
+  gap: 12px;
+}
+
+.flow-info span {
+  font-weight: 500;
+}
+
+.flow-grid {
+  display: grid;
+  gap: 4px;
+  background: #d6dfcd;
+  padding: 8px;
+  border-radius: 16px;
+  aspect-ratio: 1;
+  max-width: 400px;
+  margin: 0 auto;
+  width: 100%;
+  touch-action: none;
+  user-select: none;
+}
+
+.flow-cell {
+  aspect-ratio: 1;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  position: relative;
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.flow-cell:hover {
+  transform: scale(1.05);
+  z-index: 1;
+}
+
+.flow-cell:active {
+  transform: scale(0.95);
+}
+
+.flow-endpoint {
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.5) inset;
+}
+
+.flow-active {
+  box-shadow: 0 0 8px rgba(0, 0, 0, 0.3);
+}
+
+.flow-dot {
+  width: 40%;
+  height: 40%;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 50%;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.flow-buttons {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+/* Flow card art in game selection */
+.game-card-art.flow {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.flow-dot-1,
+.flow-dot-2 {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.flow-dot-1 {
+  top: 15%;
+  left: 20%;
+  opacity: 0.9;
+}
+
+.flow-dot-2 {
+  bottom: 15%;
+  right: 20%;
+  opacity: 0.9;
+}
+
+.flow-line-1,
+.flow-line-2 {
+  position: absolute;
+  background: currentColor;
+  border-radius: 3px;
+  opacity: 0.7;
+}
+
+.flow-line-1 {
+  width: 45%;
+  height: 6px;
+  top: 30%;
+  left: 10%;
+  transform: rotate(-15deg);
+}
+
+.flow-line-2 {
+  width: 40%;
+  height: 6px;
+  bottom: 25%;
+  right: 15%;
+  transform: rotate(20deg);
+}
+
+/* Game cards extended grid */
+.game-cards-extended {
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 14px;
+}
+
+/* Sudoku Game */
+.sudoku-game {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  max-width: 400px;
+  margin: 0 auto;
+}
+
+.sudoku-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: #7a8b6f;
+  padding: 8px;
+  border-radius: 12px;
+  max-width: 320px;
+  margin: 0 auto;
+}
+
+.sudoku-row {
+  display: flex;
+  gap: 2px;
+}
+
+.sudoku-cell-input {
+  width: 100%;
+  aspect-ratio: 1;
+  font-size: 24px;
+  font-weight: 600;
+  text-align: center;
+  border: none;
+  background: white;
+  border-radius: 4px;
+  color: #3f5e46;
+}
+
+.sudoku-given {
+  background: #e8f0df;
+  color: #5a7a60;
+  font-weight: 700;
+}
+
+.sudoku-cell-input:not(.sudoku-given):focus {
+  outline: 2px solid #7ea87d;
+  outline-offset: -2px;
+}
+
+/* Sudoku icon in game card */
+.sudoku-cell {
+  position: absolute;
+  font-size: 18px;
+  font-weight: 700;
+  color: currentColor;
+}
+
+.sudoku-1 { top: 20%; left: 20%; }
+.sudoku-2 { top: 20%; right: 20%; }
+.sudoku-3 { bottom: 25%; left: 20%; }
+.sudoku-4 { bottom: 25%; right: 20%; }
+
+/* Pattern Memory Game */
+.pattern-game {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  max-width: 500px;
+  margin: 0 auto;
+}
+
+.pattern-info {
+  display: flex;
+  justify-content: center;
+  gap: 24px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #7a8b6f;
+}
+
+.pattern-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  max-width: 350px;
+  margin: 0 auto;
+}
+
+.pattern-button {
+  aspect-ratio: 1;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  opacity: 0.85;
+}
+
+.pattern-button:hover:not(:disabled) {
+  opacity: 1;
+  transform: scale(1.05);
+}
+
+.pattern-active {
+  opacity: 1 !important;
+  transform: scale(1.1) !important;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.3);
+}
+
+/* Pattern icon in game card */
+.pattern-dot {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.8;
+}
+
+.pattern-1 { top: 25%; left: 30%; }
+.pattern-2 { top: 50%; right: 25%; }
+.pattern-3 { bottom: 25%; left: 35%; }
+
+/* Word Search Game */
+.wordsearch-game {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  max-width: 500px;
+  margin: 0 auto;
+}
+
+.wordsearch-words {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+  padding: 12px;
+  background: #f5f8f0;
+  border-radius: 10px;
+}
+
+.wordsearch-words span {
+  padding: 6px 14px;
+  background: white;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #5a7a60;
+  transition: all 0.2s ease;
+}
+
+.word-found {
+  background: #7ea87d !important;
+  color: white !important;
+  text-decoration: line-through;
+}
+
+.wordsearch-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  background: #7a8b6f;
+  padding: 8px;
+  border-radius: 12px;
+  touch-action: none;
+  user-select: none;
+}
+
+.wordsearch-row {
+  display: flex;
+  gap: 3px;
+}
+
+.wordsearch-cell {
+  aspect-ratio: 1;
+  border: none;
+  background: white;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #3f5e46;
+  cursor: pointer;
+  transition: all 0.1s ease;
+}
+
+.wordsearch-cell.selected {
+  background: #b8d4a8;
+  transform: scale(0.95);
+}
+
+/* Word icon in game card */
+.word-letter {
+  position: absolute;
+  font-size: 20px;
+  font-weight: 700;
+  color: currentColor;
+}
+
+.word-letter:nth-child(1) { top: 30%; left: 25%; }
+.word-letter:nth-child(2) { top: 50%; left: 50%; transform: translate(-50%, -50%); }
+.word-letter:nth-child(3) { bottom: 30%; right: 25%; }
+
+/* Card Matching Game */
+.cardmatch-game {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  max-width: 500px;
+  margin: 0 auto;
+}
+
+.cardmatch-info {
+  display: flex;
+  justify-content: center;
+  gap: 24px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #7a8b6f;
+}
+
+.cardmatch-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  max-width: 400px;
+  margin: 0 auto;
+}
+
+.cardmatch-card {
+  aspect-ratio: 1;
+  border: none;
+  border-radius: 12px;
+  background: #d6dfcd;
+  cursor: pointer;
+  position: relative;
+  transition: transform 0.3s ease;
+  transform-style: preserve-3d;
+  font-size: 32px;
+}
+
+.cardmatch-card .card-front,
+.cardmatch-card .card-back {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backface-visibility: hidden;
+  border-radius: 12px;
+}
+
+.cardmatch-card .card-front {
+  background: #7ea87d;
+  color: white;
+  font-weight: 700;
+  font-size: 36px;
+}
+
+.cardmatch-card .card-back {
+  background: white;
+  transform: rotateY(180deg);
+}
+
+.cardmatch-card.flipped {
+  transform: rotateY(180deg);
+}
+
+.cardmatch-card.matched {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.cardmatch-card:not(.matched):hover {
+  transform: scale(1.05);
+}
+
+.cardmatch-card.flipped:not(.matched):hover {
+  transform: rotateY(180deg) scale(1.05);
+}
+
+/* Card icon in game card */
+.card-icon {
+  position: absolute;
+  width: 28px;
+  height: 38px;
+  background: currentColor;
+  border-radius: 4px;
+  opacity: 0.8;
+}
+
+.card-1 { top: 25%; left: 25%; transform: rotate(-10deg); }
+.card-2 { top: 30%; right: 25%; transform: rotate(10deg); }
+
+/* Sudoku icon in game card */
+.sudoku-icon {
+  display: block;
+  margin: 0 auto;
+  overflow: visible;
+}

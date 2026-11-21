@@ -1,9 +1,9 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useRef, useState } from 'react'
 import { PictureDayRoot } from '@/components/PictureDayGame'
 
-// ── Sparkle burst on correct answer ─────────────────────────────────────────
+// â”€â”€ Sparkle burst on correct answer â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function SparklesBurst({ active }: { active: boolean }) {
   const particles = ['\u2726', '\u2727', '\u2605', '\u2726', '\u2727', '\u2726', '\u2727', '\u2605', '\u2726', '\u2727', '\u2726', '\u2727']
@@ -18,9 +18,9 @@ function SparklesBurst({ active }: { active: boolean }) {
 
 export const gameNames = [
   'Counting boxes',
-  'Colouring game',
   'Find the differences',
   'Picture day',
+  'Simple Sudoku',
 ] as const
 export type GameName = (typeof gameNames)[number]
 
@@ -37,23 +37,23 @@ export function GameCards({ onPlay }: { onPlay: (game: GameName) => void }) {
         },
         {
           name: gameNames[1],
-          note: 'Make something colourful',
+          note: 'A little attention to detail',
           style: 'water-card',
-          art: 'colours',
+          art: 'differences',
           tag: '02',
         },
         {
           name: gameNames[2],
-          note: 'A little attention to detail',
+          note: 'Capture these objects',
           style: 'movement-card',
-          art: 'differences',
+          art: 'picture',
           tag: '03',
         },
         {
           name: gameNames[3],
-          note: 'Capture these objects',
+          note: 'Fill in the numbers',
           style: 'sleep-card',
-          art: 'picture',
+          art: 'sudoku',
           tag: '04',
         },
       ].map((game, i) => (
@@ -70,13 +70,22 @@ export function GameCards({ onPlay }: { onPlay: (game: GameName) => void }) {
           <span className={`game-card-art ${game.art}`} aria-hidden="true">
             {game.art === 'boxes' ? (
               Array.from({ length: 5 }, (_, n) => <i key={n} />)
-            ) : game.art === 'colours' ? (
-              Array.from({ length: 4 }, (_, n) => <i key={n} />)
             ) : game.art === 'differences' ? (
               <>
                 <i />
                 <i />
               </>
+            ) : game.art === 'sudoku' ? (
+              <svg viewBox="0 0 100 100" width="100" height="100" className="sudoku-icon">
+                <rect x="10" y="10" width="35" height="35" rx="4" fill="currentColor" opacity="0.15" />
+                <rect x="55" y="10" width="35" height="35" rx="4" fill="currentColor" opacity="0.15" />
+                <rect x="10" y="55" width="35" height="35" rx="4" fill="currentColor" opacity="0.15" />
+                <rect x="55" y="55" width="35" height="35" rx="4" fill="currentColor" opacity="0.15" />
+                <text x="27.5" y="37" fontSize="24" fontWeight="700" fill="currentColor" textAnchor="middle">1</text>
+                <text x="72.5" y="37" fontSize="24" fontWeight="700" fill="currentColor" textAnchor="middle">2</text>
+                <text x="27.5" y="82" fontSize="24" fontWeight="700" fill="currentColor" textAnchor="middle">3</text>
+                <text x="72.5" y="82" fontSize="24" fontWeight="700" fill="currentColor" textAnchor="middle">4</text>
+              </svg>
             ) : (
               <span className="picture-card-camera">
                 <i />
@@ -97,13 +106,13 @@ export function Game({ name, onComplete, onRequestApproval }: {
   onRequestApproval?: (mode: 'indoors' | 'outdoors', onApprove: () => void, onDeny: () => void) => void;
 }) {
   if (name === 'Counting boxes') return <CountingBoxes />
-  if (name === 'Colouring game') return <ColouringGame />
   if (name === 'Find the differences') return <Differences />
+  if (name === 'Simple Sudoku') return <SimpleSudoku />
   return <PictureDayRoot onComplete={onComplete} requireApproval={onRequestApproval} />
 }
 
 
-// ── Counting boxes image bank ─────────────────────────────────────────────────
+// â”€â”€ Counting boxes image bank â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 type BoxEntry = { src: string; count: number; label: string }
 
@@ -149,49 +158,25 @@ function makeOptions(count: number): number[] {
   return [...opts].sort(() => Math.random() - 0.5)
 }
 
-type Phase = 'flash' | 'guess'
+type Phase = 'guess'
 
 function CountingBoxes() {
   const [matchEntries, setMatchEntries] = useState<BoxEntry[]>(() => pickRound())
   const [step, setStep] = useState(0)
-  const [phase, setPhase] = useState<Phase>('flash')
+  const [phase] = useState<Phase>('guess')
   const [answer, setAnswer] = useState<number | null>(null)
   const [showSparkle, setShowSparkle] = useState(false)
   const [options, setOptions] = useState<number[]>([])
-  const [countdown, setCountdown] = useState(3)
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const entry = matchEntries[step]
   const correct = answer !== null && answer === entry?.count
 
   // Reset for a new step or new match
   useEffect(() => {
-    setPhase('flash')
     setAnswer(null)
-    setCountdown(3)
     if (entry) setOptions(makeOptions(entry.count))
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step, matchEntries])
-
-  // Run countdown during flash phase
-  useEffect(() => {
-    if (phase !== 'flash') return
-    if (timerRef.current) clearInterval(timerRef.current)
-    timerRef.current = setInterval(() => {
-      setCountdown((c) => {
-        if (c <= 1) {
-          clearInterval(timerRef.current!)
-          timerRef.current = null
-          setPhase('guess')
-          return 0
-        }
-        return c - 1
-      })
-    }, 1000)
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current)
-    }
-  }, [phase])
 
   // Sparkle on correct answer
   useEffect(() => {
@@ -216,30 +201,15 @@ function CountingBoxes() {
   return (
     <div className="counting-game" style={{ position: 'relative' }}>
       <SparklesBurst active={showSparkle} />
-      <p>
-        {phase === 'flash'
-          ? 'Look carefully \u2014 the picture will disappear!'
-          : 'How many dark boxes did you count?'}
-      </p>
+      <p>How many dark boxes can you count?</p>
 
       <div className="counting-image-wrap">
-        {phase === 'flash' ? (
-          <>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={entry.src}
-              alt={entry.label}
-              className="counting-image"
-            />
-            <div className="counting-countdown" aria-live="polite" aria-atomic="true">
-              {countdown}
-            </div>
-          </>
-        ) : (
-          <div className="counting-hidden-board" role="img" aria-label="Picture hidden, make your guess">
-            <span>?</span>
-          </div>
-        )}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={entry.src}
+          alt={entry.label}
+          className="counting-image"
+        />
       </div>
 
       <div className="counting-match-progress" aria-label={`Image ${step + 1} of ${matchEntries.length}`}>
@@ -255,7 +225,7 @@ function CountingBoxes() {
         {options.map((value) => (
           <button
             key={value}
-            disabled={phase === 'flash' || correct}
+            disabled={correct}
             onClick={() => setAnswer(value)}
             className={answer === value ? (correct ? 'correct' : 'try-again') : ''}
           >
@@ -265,13 +235,11 @@ function CountingBoxes() {
       </div>
 
       <div className="game-feedback" role="status">
-        {phase === 'flash'
-          ? 'Study the picture\u2026'
-          : answer === null
-            ? 'Take your time, then pick a number.'
-            : correct
-              ? 'That\u2019s right! Nicely counted.'
-              : 'Not quite \u2014 have another look next time.'}
+        {answer === null
+          ? 'Take your time, then pick a number.'
+          : correct
+            ? 'That\u2019s right! Nicely counted.'
+            : 'Not quite \u2014 have another look.'}
       </div>
 
       {correct && (
@@ -292,94 +260,6 @@ const palette = [
   { name: 'Peach', value: '#E8B58E' },
 ]
 
-function ColouringGame() {
-  const [colour, setColour] = useState(palette[0].value)
-  const [fills, setFills] = useState<Record<string, string>>({})
-  const [lastPart, setLastPart] = useState('')
-  const shapes = [
-    { id: 'stem', label: 'Stem', shape: <rect x="145" y="144" width="10" height="117" rx="5" /> },
-    {
-      id: 'left-leaf',
-      label: 'Left leaf',
-      shape: <path d="M148 226C90 231 65 198 70 176c46-4 73 13 78 50Z" />,
-    },
-    {
-      id: 'right-leaf',
-      label: 'Right leaf',
-      shape: <path d="M153 206c4-42 33-58 75-48-1 33-30 55-75 48Z" />,
-    },
-    ...Array.from({ length: 6 }, (_, i) => ({
-      id: `petal-${i}`,
-      label: `Petal ${i + 1}`,
-      shape: <ellipse cx="150" cy="66" rx="25" ry="37" transform={`rotate(${i * 60} 150 115)`} />,
-    })),
-    { id: 'centre', label: 'Flower centre', shape: <circle cx="150" cy="115" r="30" /> },
-    { id: 'pot', label: 'Flower pot', shape: <path d="M109 251h82l-12 51h-58Z" /> },
-  ]
-  function paint(id: string, label: string) {
-    setFills({ ...fills, [id]: colour })
-    setLastPart(label)
-  }
-  return (
-    <div className="colouring-game">
-      <p>Pick a colour, then tap a part of the flower. There&apos;s no wrong way to create.</p>
-      <svg
-        className="colouring-flower"
-        viewBox="0 0 300 325"
-        aria-label="Interactive flower colouring picture"
-      >
-        {shapes.map((part) => (
-          <g
-            key={part.id}
-            role="button"
-            tabIndex={0}
-            aria-label={`Colour ${part.label.toLowerCase()}`}
-            fill={fills[part.id] || '#FFFFFF'}
-            stroke="#7B8D70"
-            strokeWidth="2.5"
-            strokeLinejoin="round"
-            onClick={() => paint(part.id, part.label)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter' || event.key === ' ') {
-                event.preventDefault()
-                paint(part.id, part.label)
-              }
-            }}
-          >
-            {part.shape}
-          </g>
-        ))}
-      </svg>
-      <div className="colour-palette" aria-label="Choose a colour">
-        {palette.map((item) => (
-          <button
-            key={item.name}
-            aria-label={item.name}
-            aria-pressed={colour === item.value}
-            onClick={() => setColour(item.value)}
-            style={{ backgroundColor: item.value }}
-            className={colour === item.value ? 'selected' : ''}
-          />
-        ))}
-      </div>
-      <div className="game-feedback" role="status">
-        {lastPart
-          ? `${lastPart} coloured. Looking lovely!`
-          : 'A little colour can brighten your day.'}
-      </div>
-      <button
-        className="game-secondary"
-        onClick={() => {
-          setFills({})
-          setLastPart('')
-        }}
-      >
-        Start fresh
-      </button>
-    </div>
-  )
-}
-
 function Shape({ kind, colour }: { kind: number; colour: string }) {
   return (
     <svg viewBox="0 0 60 60" width="44" height="44" aria-hidden="true" fill={colour}>
@@ -396,6 +276,7 @@ function Shape({ kind, colour }: { kind: number; colour: string }) {
   )
 }
 
+
 function Differences() {
   const [found, setFound] = useState<number[]>([])
   const [message, setMessage] = useState('Look for three changes in the second picture.')
@@ -403,6 +284,15 @@ function Differences() {
   const [showSparkle, setShowSparkle] = useState(false)
   const changes = round % 2 === 0 ? [1, 3, 5] : [0, 2, 4]
   const complete = found.length === changes.length
+  
+  const diffPalette = [
+    { name: 'Sage green', value: '#9AB57E' },
+    { name: 'Sky blue', value: '#91C8DB' },
+    { name: 'Butter yellow', value: '#EED786' },
+    { name: 'Soft pink', value: '#DBA4AE' },
+    { name: 'Lavender', value: '#B5A3CC' },
+    { name: 'Peach', value: '#E8B58E' },
+  ]
 
   function choose(index: number) {
     if (found.includes(index) || complete) return
@@ -430,7 +320,7 @@ function Differences() {
         <div className="difference-grid">
           {Array.from({ length: 6 }, (_, i) => (
             <div className="difference-cell" key={i}>
-              <Shape kind={(i + round) % 4} colour={palette[i].value} />
+              <Shape kind={(i + round) % 4} colour={diffPalette[i].value} />
             </div>
           ))}
         </div>
@@ -448,7 +338,7 @@ function Differences() {
             >
               <Shape
                 kind={(i + round + (changes.includes(i) ? 1 : 0)) % 4}
-                colour={palette[i].value}
+                colour={diffPalette[i].value}
               />
               {found.includes(i) && (
                 <span className="found-tick" aria-hidden="true">
@@ -478,3 +368,139 @@ function Differences() {
     </div>
   )
 }
+
+// â”€â”€ Simple Sudoku (4x4) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+function SimpleSudoku() {
+  const [board, setBoard] = useState<(number | null)[][]>(() => generateSudoku())
+  const [initial, setInitial] = useState<boolean[][]>(() => 
+    board.map(row => row.map(cell => cell !== null))
+  )
+  const [showSparkle, setShowSparkle] = useState(false)
+
+  function generateSudoku(): (number | null)[][] {
+    // Start with a solved 4x4 sudoku
+    const solutions = [
+      [[1,2,3,4],[3,4,1,2],[2,3,4,1],[4,1,2,3]],
+      [[2,1,4,3],[4,3,2,1],[1,4,3,2],[3,2,1,4]],
+      [[3,4,2,1],[1,2,4,3],[4,3,1,2],[2,1,3,4]],
+    ]
+    const solution = solutions[Math.floor(Math.random() * solutions.length)]
+    const puzzle: (number | null)[][] = solution.map(row => [...row])
+    
+    // Remove some numbers (keep 6-8 numbers)
+    const cellsToRemove = 8 + Math.floor(Math.random() * 3)
+    let removed = 0
+    while (removed < cellsToRemove) {
+      const row = Math.floor(Math.random() * 4)
+      const col = Math.floor(Math.random() * 4)
+      if (puzzle[row][col] !== null) {
+        puzzle[row][col] = null
+        removed++
+      }
+    }
+    
+    return puzzle
+  }
+
+  function handleInput(row: number, col: number, value: string) {
+    if (initial[row][col]) return
+    
+    const num = value ? parseInt(value) : null
+    if (num !== null && (num < 1 || num > 4)) return
+    
+    const newBoard = board.map(r => [...r])
+    newBoard[row][col] = num
+    setBoard(newBoard)
+  }
+
+  function isComplete(): boolean {
+    return board.every(row => row.every(cell => cell !== null)) && isValid()
+  }
+
+  function isValid(): boolean {
+    // Check rows
+    for (let row of board) {
+      const seen = new Set(row.filter(x => x !== null))
+      if (seen.size !== row.filter(x => x !== null).length) return false
+    }
+    
+    // Check columns
+    for (let col = 0; col < 4; col++) {
+      const column = board.map(row => row[col]).filter(x => x !== null)
+      const seen = new Set(column)
+      if (seen.size !== column.length) return false
+    }
+    
+    // Check 2x2 boxes
+    for (let boxRow = 0; boxRow < 2; boxRow++) {
+      for (let boxCol = 0; boxCol < 2; boxCol++) {
+        const box = []
+        for (let i = 0; i < 2; i++) {
+          for (let j = 0; j < 2; j++) {
+            const val = board[boxRow * 2 + i][boxCol * 2 + j]
+            if (val !== null) box.push(val)
+          }
+        }
+        const seen = new Set(box)
+        if (seen.size !== box.length) return false
+      }
+    }
+    
+    return true
+  }
+
+  const complete = isComplete()
+
+  useEffect(() => {
+    if (complete) {
+      setShowSparkle(true)
+      const t = window.setTimeout(() => setShowSparkle(false), 1200)
+      return () => window.clearTimeout(t)
+    }
+  }, [complete])
+
+  function handleNewPuzzle() {
+    const newBoard = generateSudoku()
+    setBoard(newBoard)
+    setInitial(newBoard.map(row => row.map(cell => cell !== null)))
+  }
+
+  return (
+    <div className="sudoku-game" style={{ position: 'relative' }}>
+      <SparklesBurst active={showSparkle} />
+      <p>Fill each row, column, and 2Ã—2 box with numbers 1-4.</p>
+      
+      <div className="sudoku-grid">
+        {board.map((row, rowIdx) => (
+          <div key={rowIdx} className="sudoku-row">
+            {row.map((cell, colIdx) => (
+              <input
+                key={`${rowIdx}-${colIdx}`}
+                type="text"
+                inputMode="numeric"
+                maxLength={1}
+                value={cell || ''}
+                onChange={(e) => handleInput(rowIdx, colIdx, e.target.value)}
+                className={`sudoku-cell-input ${initial[rowIdx][colIdx] ? 'sudoku-given' : ''}`}
+                disabled={initial[rowIdx][colIdx]}
+                aria-label={`Row ${rowIdx + 1}, Column ${colIdx + 1}`}
+              />
+            ))}
+          </div>
+        ))}
+      </div>
+
+      <div className="game-feedback" role="status">
+        {complete ? 'Perfect! All correct!' : 'Fill in the missing numbers.'}
+      </div>
+
+      {complete && (
+        <button className="primary-button" onClick={handleNewPuzzle}>
+          New puzzle \u2192
+        </button>
+      )}
+    </div>
+  )
+}
+
