@@ -1,0 +1,10 @@
+{
+  "description": "A calming pastel green and blue interface designed to make everyday tasks feel clear, organized, and easy to manage.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}
