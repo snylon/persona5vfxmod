@@ -401,6 +401,9 @@ export default function App({ user, linkState, onRespondLinkRequest, onSignOut, 
   const [activity, setActivity] = useState(6420)
   const [toast, setToast] = useState('')
   const [activeGame, setActiveGame] = useState<GameName | null>(null)
+  function handlePlay(game: GameName) {
+    setActiveGame(game)
+  }
   const todayDisplayDate = new Intl.DateTimeFormat('en-US', {
     weekday: 'long',
     month: 'long',
@@ -846,7 +849,7 @@ export default function App({ user, linkState, onRespondLinkRequest, onSignOut, 
                 </>
               )}
 
-              {page === 'Games' && <GameCards onPlay={(game) => setActiveGame(game)} />}
+              {page === 'Games' && <GameCards onPlay={handlePlay} />}
 
               {page === 'Family tree' && (
                 <FamilyTree
@@ -1102,7 +1105,7 @@ export default function App({ user, linkState, onRespondLinkRequest, onSignOut, 
             </button>
           </div>
           <div className="game-fullscreen-body">
-            <Game key={activeGame} name={activeGame} />
+            <Game key={activeGame} name={activeGame} onComplete={() => setActiveGame(null)} />
           </div>
         </div>
       )}
