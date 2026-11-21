@@ -4491,7 +4491,8 @@ h3,
 .ct-picture-item img {
   width: 100%;
   aspect-ratio: 1;
-  object-fit: cover;
+  object-fit: contain;
+  background: #f2f4eb;
   border-radius: 10px;
   border: 1px solid #e8eed8;
 }

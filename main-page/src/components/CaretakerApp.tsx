@@ -1,12 +1,13 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import FamilyTree from './FamilyTree'
 import LinkGateCard from './LinkGateCard'
 import type { Reminder, FamilyMember } from '@/app/(frontend)/page'
 import type { LinkActionResult } from '@/app/(frontend)/link-actions'
 import type { LinkedPartner, LinkState, SessionUser } from '@/lib/auth-store'
+import type { CaregiverPictureState, PictureDaySubmission } from '@/lib/picture-day-store'
 
 function Icon({ name, size = 20, ...props }: { name: string; size?: number; className?: string }) {
   const paths: Record<string, React.ReactNode> = {
@@ -497,30 +498,210 @@ function OverviewPage({
 
 // ── Picture Day review page ───────────────────────────────────────────────────
 
-function PictureReviewPage({ patientFirstName = 'Jamie' }: { patientFirstName?: string }) {
-  const [photos] = useState<{ prompt: string; src: string }[]>(SAMPLE_PHOTOS)
+function formatTimeLabel(iso?: string) {
+  if (!iso) return ''
+  try {
+    return new Intl.DateTimeFormat('en-US', {
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    }).format(new Date(iso))
+  } catch {
+    return ''
+  }
+}
+
+function PictureReviewPage({
+  patientFirstName = 'Jamie',
+  pictureState,
+  onReview,
+}: {
+  patientFirstName?: string
+  pictureState: CaregiverPictureState
+  onReview: (submissionId: string, decision: 'approve' | 'reject') => Promise<void>
+}) {
+  const [busyId, setBusyId] = useState<string | null>(null)
+  const [viewingPhoto, setViewingPhoto] = useState<PictureDaySubmission | null>(null)
+
+  useEffect(() => {
+    if (!viewingPhoto) return
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setViewingPhoto(null)
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [viewingPhoto])
+
+  async function handleDecision(id: string, decision: 'approve' | 'reject') {
+    setBusyId(id)
+    try {
+      await onReview(id, decision)
+    } finally {
+      setBusyId(null)
+    }
+  }
+
   return (
-    <div className="ct-panel">
-      <div className="ct-panel-top">
-        <div>
-          <h3>Picture day</h3>
-          <p className="ct-panel-sub">Photos taken by {patientFirstName}</p>
+    <div className="space-y-4">
+      <div className="ct-panel">
+        <div className="ct-panel-top">
+          <div>
+            <h3>Pending review</h3>
+            <p className="ct-panel-sub">
+              Approve {patientFirstName}&rsquo;s picture so they can move to the next prompt.
+            </p>
+          </div>
         </div>
+
+        {pictureState.pending.length === 0 ? (
+          <div className="ct-picture-empty">
+            <span className="ct-picture-empty-icon"><Icon name="camera" size={28} /></span>
+            <p>No pictures waiting for approval right now.</p>
+          </div>
+        ) : (
+          <div className="mt-3 space-y-3">
+            {pictureState.pending.map((item) => {
+              const isBusy = busyId === item.id
+              return (
+                <div
+                  key={item.id}
+                  className="overflow-hidden rounded-[18px] border border-[#dfe6d6] bg-[#fafbf8]"
+                >
+                  <button
+                    type="button"
+                    onClick={() => setViewingPhoto(item)}
+                    className="flex w-full items-center justify-center bg-[#f2f4eb] p-2.5"
+                    aria-label={`View full size photo for ${item.promptTitle}`}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={item.imageDataUrl}
+                      alt={`${patientFirstName}'s photo for ${item.promptTitle}`}
+                      className="max-h-[320px] w-full rounded-[12px] object-contain"
+                    />
+                  </button>
+                  <div className="p-3.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <div>
+                        <strong className="block font-['Manrope'] text-[14px] font-bold text-[#3a4d3c]">
+                          {item.promptTitle}
+                        </strong>
+                        <small className="block text-[10px] text-[#7f8c78]">
+                          {item.mode === 'outdoors' ? 'Outdoors' : 'Indoors'} ·{' '}
+                          {formatTimeLabel(item.createdAt)}
+                        </small>
+                      </div>
+                      <span className="rounded-full bg-[#eef5e6] px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.6px] text-[#557242]">
+                        Prompt {item.promptIndex + 1}
+                      </span>
+                    </div>
+                    <div className="mt-3 flex gap-2">
+                      <button
+                        type="button"
+                        disabled={isBusy}
+                        onClick={() => void handleDecision(item.id, 'approve')}
+                        className="flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-[12px] bg-[#5f7d4d] px-3 text-[12px] font-semibold text-white hover:bg-[#526e41] disabled:opacity-60"
+                      >
+                        <Icon name="check" size={15} />
+                        {isBusy ? 'Saving…' : 'Approve'}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={isBusy}
+                        onClick={() => void handleDecision(item.id, 'reject')}
+                        className="flex min-h-10 items-center justify-center rounded-[12px] border border-[#ead4d6] bg-[#fdf4f5] px-3.5 text-[12px] font-semibold text-[#9a575e] hover:bg-[#f9e7e9] disabled:opacity-60"
+                      >
+                        Ask to retake
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
       </div>
-      {photos.length === 0 ? (
-        <div className="ct-picture-empty">
-          <span className="ct-picture-empty-icon"><Icon name="camera" size={30} /></span>
-          <p>No pictures yet. {patientFirstName} hasn&rsquo;t completed a picture day session.</p>
+
+      <div className="ct-panel">
+        <div className="ct-panel-top">
+          <div>
+            <h3>Approved pictures</h3>
+            <p className="ct-panel-sub">Tap a photo to view it full size</p>
+          </div>
+          {pictureState.approved.length > 0 && (
+            <span className="text-[10px] font-semibold text-[#7c8c73]">
+              {pictureState.approved.length} total
+            </span>
+          )}
         </div>
-      ) : (
-        <div className="ct-picture-grid">
-          {photos.map((p, i) => (
-            <div className="ct-picture-item" key={i}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={p.src} alt={p.prompt} />
-              <span>{p.prompt}</span>
+        {pictureState.approved.length === 0 ? (
+          <div className="ct-picture-empty">
+            <span className="ct-picture-empty-icon"><Icon name="camera" size={28} /></span>
+            <p>Approved pictures from {patientFirstName} will appear here.</p>
+          </div>
+        ) : (
+          <div className="ct-picture-grid">
+            {pictureState.approved.map((p) => (
+              <button
+                type="button"
+                className="ct-picture-item cursor-pointer text-left transition hover:opacity-90"
+                key={p.id}
+                onClick={() => setViewingPhoto(p)}
+                aria-label={`View full size approved picture: ${p.promptTitle}`}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={p.imageDataUrl} alt={p.promptTitle} />
+                <span>{p.promptTitle}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {viewingPhoto && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-[#232d26]/75 p-4 backdrop-blur-[2px]"
+          onClick={() => setViewingPhoto(null)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="picture-lightbox-title"
+            onClick={(event) => event.stopPropagation()}
+            className="flex max-h-[90dvh] w-full max-w-[460px] flex-col overflow-hidden rounded-[24px] border border-[#dfe6d6] bg-white shadow-[0_24px_60px_rgba(0,0,0,0.35)]"
+          >
+            <div className="flex items-center justify-between gap-3 bg-[#e8efdc] px-4 py-3.5">
+              <div className="min-w-0">
+                <h3
+                  id="picture-lightbox-title"
+                  className="truncate font-['Manrope'] text-[16px] font-bold text-[#384b39]"
+                >
+                  {viewingPhoto.promptTitle}
+                </h3>
+                <p className="text-[10px] font-medium text-[#6f8065]">
+                  {viewingPhoto.mode === 'outdoors' ? 'Outdoors' : 'Indoors'} ·{' '}
+                  {formatTimeLabel(viewingPhoto.reviewedAt || viewingPhoto.createdAt)}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setViewingPhoto(null)}
+                aria-label="Close full size picture"
+                className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white/85 text-[#52654c]"
+              >
+                <Icon name="close" size={18} />
+              </button>
             </div>
-          ))}
+            <div className="flex flex-1 items-center justify-center overflow-auto bg-[#f4f6ef] p-3">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={viewingPhoto.imageDataUrl}
+                alt={`Full size photo for ${viewingPhoto.promptTitle}`}
+                className="max-h-[72dvh] max-w-full rounded-[12px] object-contain"
+              />
+            </div>
+          </div>
         </div>
       )}
     </div>
@@ -862,6 +1043,7 @@ export default function CaretakerApp({
   const screenRef = useRef<HTMLElement>(null)
   const [page, setPage] = useState<CTPage>('Overview')
   const [toast, setToast] = useState('')
+  const [notificationsOpen, setNotificationsOpen] = useState(false)
   const firstName = user?.name?.trim().split(/\s+/)[0] || 'Alex'
   const isLinked = Boolean(linkState?.linkedPartner)
   const patientFirstName = linkState?.linkedPartner?.name?.trim().split(/\s+/)[0] || 'Jamie'
@@ -871,10 +1053,73 @@ export default function CaretakerApp({
   const [patientLang, setPatientLang] = useState('English')
   const [caretakerLang, setCaretakerLang] = useState('English')
   const [outsidePictureDay, setOutsidePictureDay] = useState(false)
+  const [pictureState, setPictureState] = useState<CaregiverPictureState>({
+    pending: [],
+    approved: [],
+  })
 
-  useEffect(() => { screenRef.current?.scrollTo({ top: 0, behavior: 'instant' }) }, [page])
+  const refreshPictures = useCallback(async () => {
+    if (!isLinked) {
+      setPictureState({ pending: [], approved: [] })
+      return
+    }
+    try {
+      const res = await fetch('/picture-day', { cache: 'no-store' })
+      const data = (await res.json()) as { ok?: boolean; state?: CaregiverPictureState }
+      if (data.ok && data.state) {
+        setPictureState(data.state)
+      }
+    } catch {
+      // Ignore transient poll errors
+    }
+  }, [isLinked])
+
+  useEffect(() => {
+    void refreshPictures()
+    if (!isLinked) return
+    const onFocus = () => {
+      void refreshPictures()
+    }
+    window.addEventListener('focus', onFocus)
+    const timer = window.setInterval(() => {
+      void refreshPictures()
+    }, 3000)
+    return () => {
+      window.removeEventListener('focus', onFocus)
+      window.clearInterval(timer)
+    }
+  }, [isLinked, refreshPictures])
+
+  useEffect(() => {
+    screenRef.current?.scrollTo({ top: 0, behavior: 'instant' })
+    setNotificationsOpen(false)
+    if (page === 'Pictures' && isLinked) {
+      void refreshPictures()
+    }
+  }, [page, isLinked, refreshPictures])
 
   function notify(msg: string) { setToast(msg); window.setTimeout(() => setToast(''), 3200) }
+
+  async function handleReviewPicture(submissionId: string, decision: 'approve' | 'reject') {
+    try {
+      const res = await fetch('/picture-day', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'review', submissionId, decision }),
+      })
+      const result = (await res.json()) as {
+        ok?: boolean
+        message?: string
+        error?: string
+        state?: CaregiverPictureState
+      }
+      if (result.state) setPictureState(result.state)
+      if (result.message) notify(result.message)
+      else if (result.error) notify(result.error)
+    } catch {
+      notify('Could not save your review. Please try again.')
+    }
+  }
 
   const pageMeta: Record<CTPage, { title: string; sub: string }> = {
     Overview:  {
@@ -923,10 +1168,66 @@ export default function CaretakerApp({
               </h1>
               <p>{pageMeta[page].sub}</p>
             </div>
-            <div className="ct-header-right">
-              <button className="date-button" aria-label="Notifications" onClick={() => notify('No new notifications.')}>
-                <Icon name="bell" size={20} />
-              </button>
+            <div className="ct-header-right relative">
+              <div className="relative">
+                <button
+                  type="button"
+                  className="ct-switch-btn relative"
+                  title="Notifications"
+                  aria-label={
+                    isLinked && pictureState.pending.length > 0
+                      ? 'Notifications: a picture is waiting to be reviewed'
+                      : 'Notifications'
+                  }
+                  onClick={() => setNotificationsOpen((open) => !open)}
+                >
+                  <Icon name="bell" size={16} />
+                  {isLinked && pictureState.pending.length > 0 && (
+                    <span
+                      className="absolute -right-1 -top-1 h-3 w-3 rounded-full bg-[#dc4c56] ring-2 ring-[#f9f6f1]"
+                      aria-hidden="true"
+                    />
+                  )}
+                </button>
+
+                {notificationsOpen && (
+                  <div className="absolute right-0 top-12 z-40 w-[256px] rounded-[18px] border border-[#dfe6d6] bg-white p-4 shadow-[0_14px_40px_rgba(48,61,53,0.16)]">
+                    <div className="flex items-center justify-between border-b border-[#edf1e7] pb-2">
+                      <strong className="font-['Manrope'] text-[12px] font-bold text-[#3d513c]">
+                        Notifications
+                      </strong>
+                      <button
+                        type="button"
+                        onClick={() => setNotificationsOpen(false)}
+                        aria-label="Close notifications"
+                        className="text-[#8a9483] hover:text-[#4e6149]"
+                      >
+                        <Icon name="close" size={14} />
+                      </button>
+                    </div>
+                    {isLinked && pictureState.pending.length > 0 ? (
+                      <div className="mt-3 space-y-2.5">
+                        <p className="text-[12px] font-medium leading-snug text-[#3d513c]">
+                          A picture is waiting to be reviewed
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setNotificationsOpen(false)
+                            setPage('Pictures')
+                          }}
+                          className="flex min-h-9 w-full items-center justify-center gap-1.5 rounded-[10px] bg-[#5f7d4d] px-3 text-[11px] font-semibold text-white hover:bg-[#526e41]"
+                        >
+                          Review in Pictures
+                          <Icon name="arrow" size={14} />
+                        </button>
+                      </div>
+                    ) : (
+                      <p className="mt-3 text-[11px] text-[#889481]">No new notifications.</p>
+                    )}
+                  </div>
+                )}
+              </div>
               {onSignOut ? (
                 <form action={onSignOut}>
                   <button
@@ -964,7 +1265,11 @@ export default function CaretakerApp({
           )}
           {page === 'Pictures' && (
             isLinked ? (
-              <PictureReviewPage patientFirstName={patientFirstName} />
+              <PictureReviewPage
+                patientFirstName={patientFirstName}
+                pictureState={pictureState}
+                onReview={handleReviewPicture}
+              />
             ) : (
               <LinkGateCard role="caregiver" onGoToSettings={() => setPage('Settings')} />
             )
