@@ -46,7 +46,12 @@ const nextConfig: NextConfig = {
   // Dev-only - ignored by `next build`.
   //
   // Next.js compares the Origin hostname without its port for dev resources.
-  allowedDevOrigins: makePublicPreviewURL ? [makePublicPreviewURL.hostname] : [],
+  allowedDevOrigins: [
+    ...(makePublicPreviewURL ? [makePublicPreviewURL.hostname] : []),
+    '10.122.149.158',
+    '192.168.137.1',
+    'localhost',
+  ],
   // Prerender source maps add ~100 MB per static build worker
   enablePrerenderSourceMaps: false,
   experimental: {

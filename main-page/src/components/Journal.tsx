@@ -193,6 +193,10 @@ export default function Journal() {
 
     return () => {
       if (timerRef.current) clearInterval(timerRef.current)
+      const bridge = typeof window !== 'undefined'
+        ? (window as unknown as { ReleafBridge?: { cancelVoiceRecording?: () => void } }).ReleafBridge
+        : undefined
+      bridge?.cancelVoiceRecording?.()
       if (recorderRef.current && recorderRef.current.state !== 'inactive') {
         recorderRef.current.stop()
       }
@@ -379,6 +383,31 @@ export default function Journal() {
   }
 
   function stopRecording() {
+    const bridge = typeof window !== 'undefined'
+      ? (window as unknown as { ReleafBridge?: { stopVoiceRecording?: () => string | null } }).ReleafBridge
+      : undefined
+
+    if (bridge && typeof bridge.stopVoiceRecording === 'function') {
+      if (timerRef.current) clearInterval(timerRef.current)
+      timerRef.current = null
+      setRecording(false)
+      const recordedSeconds = Math.max(1, elapsedRef.current)
+      try {
+        const audioDataUrl = bridge.stopVoiceRecording()
+        if (audioDataUrl) {
+          updatePage({
+            audioDataUrl,
+            audioDuration: recordedSeconds,
+          })
+        } else {
+          setVoiceError('No audio was captured. Try speaking a little longer before stopping.')
+        }
+      } catch {
+        setVoiceError('Could not save your voice recording. Please try again.')
+      }
+      return
+    }
+
     if (recorderRef.current && recorderRef.current.state !== 'inactive') {
       recorderRef.current.stop()
     }
@@ -386,6 +415,43 @@ export default function Journal() {
 
   async function startRecording() {
     setVoiceError('')
+
+    const bridge = typeof window !== 'undefined'
+      ? (window as unknown as {
+          ReleafBridge?: {
+            isVoiceRecordingSupported?: () => boolean
+            startVoiceRecording?: () => boolean
+            stopVoiceRecording?: () => string | null
+            cancelVoiceRecording?: () => void
+          }
+        }).ReleafBridge
+      : undefined
+
+    if (bridge && typeof bridge.startVoiceRecording === 'function') {
+      try {
+        const started = bridge.startVoiceRecording()
+        if (!started) {
+          setVoiceError('Microphone permission was denied. Please allow microphone access in app settings.')
+          return
+        }
+        elapsedRef.current = 0
+        setRecordingSeconds(0)
+        setRecording(true)
+        if (timerRef.current) clearInterval(timerRef.current)
+        timerRef.current = setInterval(() => {
+          elapsedRef.current += 1
+          setRecordingSeconds(elapsedRef.current)
+          if (elapsedRef.current >= 60) {
+            stopRecording()
+          }
+        }, 1000)
+        return
+      } catch {
+        setVoiceError('Failed to start voice recording. Please try again.')
+        return
+      }
+    }
+
     if (!navigator.mediaDevices?.getUserMedia || typeof window.MediaRecorder === 'undefined') {
       setVoiceError('Voice recording is not supported in this browser.')
       return

@@ -510,7 +510,7 @@ export default function CaretakerApp({ onSwitch }: { onSwitch: () => void }) {
     <div className="app-shell ct-shell">
       {/* ── Bottom nav ── */}
       <aside className="sidebar">
-        <nav aria-label="Caretaker navigation">
+        <nav aria-label="Family navigation">
           {(
             [
               { name: "Overview" as CTPage, icon: "grid", label: "Overview" },
@@ -538,7 +538,7 @@ export default function CaretakerApp({ onSwitch }: { onSwitch: () => void }) {
           {/* Header */}
           <section className="page-heading">
             <div>
-              <div className="eyebrow ct-eyebrow">CARETAKER VIEW</div>
+              <div className="eyebrow ct-eyebrow">FAMILY VIEW</div>
               <h1>
                 {pageTitle}
                 <span className="heading-spark">
@@ -575,7 +575,7 @@ export default function CaretakerApp({ onSwitch }: { onSwitch: () => void }) {
             <span>
               <Icon name="leaf" size={14} /> Caring with intention.
             </span>
-            <span>bloom. caretaker</span>
+            <span>bloom. family</span>
           </footer>
         </div>
       </main>

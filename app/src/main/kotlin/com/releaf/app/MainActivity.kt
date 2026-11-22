@@ -7,11 +7,13 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.os.Environment
 import android.provider.MediaStore
 import android.view.ViewGroup
 import android.webkit.CookieManager
+import android.webkit.JavascriptInterface
 import android.webkit.PermissionRequest
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
@@ -80,6 +82,11 @@ class MainActivity : ComponentActivity() {
 
     private var filePathCallback: ValueCallback<Array<Uri>>? = null
     private var cameraImageUri: Uri? = null
+    private lateinit var notificationPoller: NotificationPoller
+
+    private val requestNotificationPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { /* Granted or denied — poller runs either way, notifications silently skip if denied */ }
 
     private val fileChooserLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -121,6 +128,17 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
+        // Notification channel (required on Android 8+)
+        ReleafBridge.createChannel(this)
+
+        // Request POST_NOTIFICATIONS permission on Android 13+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
+            != PackageManager.PERMISSION_GRANTED
+        ) {
+            requestNotificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
             requestCameraPermissionLauncher.launch(Manifest.permission.CAMERA)
         }
@@ -140,6 +158,11 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+
+        // Start background notification poller
+        val prefs = getSharedPreferences("releaf_prefs", Context.MODE_PRIVATE)
+        notificationPoller = NotificationPoller(this, prefs)
+        notificationPoller.start()
     }
 
     private fun handleFileChooser(
@@ -301,6 +324,7 @@ fun ReleafAppScreen(
 
                     loadUrl(currentUrl)
                     webViewInstance = this
+                    addJavascriptInterface(ReleafBridge(ctx), "ReleafBridge")
                 }
             },
             update = { view ->

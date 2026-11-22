@@ -153,6 +153,7 @@ function OverviewPage({
   linkedPatient,
   onUnlink,
   onNotify,
+  onNotifyPatient,
   reminders,
   setReminders,
   quizQuestions,
@@ -167,6 +168,7 @@ function OverviewPage({
   linkedPatient?: LinkedPartner | null
   onUnlink?: () => Promise<LinkActionResult>
   onNotify?: (msg: string) => void
+  onNotifyPatient?: (text: string) => void
   reminders: Reminder[]
   setReminders: React.Dispatch<React.SetStateAction<Reminder[]>>
   quizQuestions: QuizQuestion[]
@@ -226,6 +228,8 @@ function OverviewPage({
     setShowReminderForm(false)
     if (onAddReminder) {
       await onAddReminder({ text, time, days })
+      // Notify the patient that a new reminder has been added
+      onNotifyPatient?.(`New reminder from your family: ${text} · ${time}`)
     } else {
       setReminders((prev) => [
         ...prev,
@@ -352,7 +356,7 @@ function OverviewPage({
               {todoChecked['checkin'] ? 'Done' : 'Pending'}
             </span>
           </li>
-          {/* Caretaker-set reminders with live checked state */}
+          {/* Family-set reminders with live checked state */}
           {reminders.length === 0 ? (
             <li className="ct-todo-row">
               <span className="ct-todo-icon"><Icon name="bell" size={15} /></span>
@@ -536,8 +540,12 @@ function OverviewPage({
         )}
       </div>
 
-      {/* Real-time GPS tracking (caregiver-only, Firebase Realtime Database) */}
-      <CaregiverLocationCard patientId={linkedPatient?.id} patientName={patientName} />
+      {/* Real-time GPS tracking (caregiver-only, Firebase + server fallback) */}
+      <CaregiverLocationCard
+        patientId={linkedPatient?.id}
+        patientCode={linkedPatient?.patientCode}
+        patientName={patientName}
+      />
     </>
   )
 }
@@ -1145,14 +1153,14 @@ function SettingsPage({
                   <span className="ct-settings-icon"><Icon name="globe" size={16} /></span>
                   <div>
                     <strong>Your language</strong>
-                    <small>What you see as caretaker</small>
+                    <small>What you see as family</small>
                   </div>
                 </div>
                 <select
                   className="ct-select"
                   value={caretakerLang}
                   onChange={(e) => setCaretakerLang(e.target.value)}
-                  aria-label="Caretaker language"
+                  aria-label="Family language"
                 >
                   {LANGUAGES.map((l) => <option key={l}>{l}</option>)}
                 </select>
@@ -1212,6 +1220,9 @@ export default function CaretakerApp({
   onDeleteReminder,
   familyMembers,
   setFamilyMembers,
+  onNotifyPatient,
+  onOutdoorApproved,
+  onOutdoorDenied,
 }: {
   user?: SessionUser
   linkState?: LinkState
@@ -1227,6 +1238,9 @@ export default function CaretakerApp({
   onDeleteReminder?: (id: number) => Promise<void>
   familyMembers: FamilyMember[] | null
   setFamilyMembers: React.Dispatch<React.SetStateAction<FamilyMember[]>>
+  onNotifyPatient?: (text: string) => void
+  onOutdoorApproved?: () => void
+  onOutdoorDenied?: () => void
 }) {
   const screenRef = useRef<HTMLElement>(null)
   const [page, setPage] = useState<CTPage>('Overview')
@@ -1325,6 +1339,11 @@ export default function CaretakerApp({
       if (result.state) setPictureState(result.state)
       if (result.message) notify(result.message)
       else if (result.error) notify(result.error)
+      // Notify the patient of the outcome
+      if (result.ok) {
+        if (decision === 'approve') onOutdoorApproved?.()
+        else onOutdoorDenied?.()
+      }
     } catch {
       notify('Could not save your decision. Please try again.')
     }
@@ -1371,7 +1390,7 @@ export default function CaretakerApp({
   return (
     <div className="app-shell ct-shell">
       <aside className="sidebar">
-        <nav aria-label="Caretaker navigation">
+        <nav aria-label="Family navigation">
           {navItems.map((item) => (
             <button
               key={item.name}
@@ -1391,7 +1410,7 @@ export default function CaretakerApp({
         <div className="page-content">
           <section className="page-heading">
             <div>
-              <div className="eyebrow ct-eyebrow">CARETAKER VIEW</div>
+              <div className="eyebrow ct-eyebrow">FAMILY VIEW</div>
               <h1>
                 {pageMeta[page].title}
                 <span className="heading-spark"><Icon name="leaf" size={26} /></span>
@@ -1496,6 +1515,7 @@ export default function CaretakerApp({
                 linkedPatient={linkState?.linkedPartner}
                 onUnlink={onUnlink}
                 onNotify={notify}
+                onNotifyPatient={onNotifyPatient}
                 reminders={reminders}
                 setReminders={setReminders}
                 quizQuestions={quizQuestions}
@@ -1556,7 +1576,7 @@ export default function CaretakerApp({
 
           <footer className="page-footer">
             <span><Icon name="leaf" size={14} /> Caring with intention.</span>
-            <span>releaf. caretaker</span>
+            <span>releaf. family</span>
           </footer>
         </div>
       </main>

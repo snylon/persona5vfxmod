@@ -320,13 +320,13 @@ export function PictureDayRoot({
                   ✗
                 </span>
                 <strong>Request denied</strong>
-                <span>The caretaker did not approve outdoor mode.</span>
+                <span>Your family did not approve outdoor mode.</span>
               </>
             ) : (
               <>
                 <span className="picture-day__approval-icon">⏱</span>
                 <strong>Waiting for approval</strong>
-                <span>The caretaker needs to approve outdoor mode before you can start.</span>
+                <span>Your family needs to approve outdoor mode before you can start.</span>
               </>
             )}
           </div>

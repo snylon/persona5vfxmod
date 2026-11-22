@@ -13,6 +13,7 @@ import {
   type LinkActionResult,
 } from '@/app/(frontend)/link-actions'
 import type { LinkState, SessionUser } from '@/lib/auth-store'
+import { registerRole, sendNotification } from '@/lib/useNotify'
 
 export type Reminder = {
   id: number
@@ -63,6 +64,11 @@ export default function AppShellClient({
   })
   const [familyMembers, setFamilyMembers] = useState<FamilyMember[] | null>(null)
   const [linkState, setLinkState] = useState<LinkState>(initialLinkState)
+
+  // Tell the Android bridge which role this device is
+  useEffect(() => {
+    registerRole(user.role === 'caregiver' ? 'caretaker' : 'patient')
+  }, [user.role])
 
   const refreshLinkState = useCallback(async () => {
     try {
@@ -222,17 +228,80 @@ export default function AppShellClient({
     }
   }, [])
 
+  const patientDisplayName = user.role === 'patient'
+    ? (user.name?.trim() || 'Patient')
+    : (linkState.linkedPartner?.name?.trim() || 'Patient')
+  const patientFirstName = patientDisplayName.split(/\s+/)[0] || patientDisplayName
+
   const handleCheckin = useCallback(async () => {
     setTodoChecked((prev) => ({ ...prev, checkin: true }))
     try {
-      await fetch('/api/reminders', {
+      const res = await fetch('/api/reminders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'checkin', completed: true }),
       })
+      const json = await res.json()
+      if (json.ok && Array.isArray(json.reminders)) {
+        setReminders(json.reminders)
+        setTodoChecked((prev) => ({
+          ...prev,
+          checkin: Boolean(json.checkinDone),
+        }))
+      }
     } catch (err) {
       console.error('Failed to record checkin:', err)
     }
+
+    void sendNotification(
+      'caretaker',
+      `${patientFirstName} completed daily check-in 🌸`,
+      `${patientFirstName} finished their daily check-in for today.`,
+    )
+  }, [patientFirstName])
+
+  // ── Notification helpers ───────────────────────────────────────────────────
+
+  /** Patient took a picture — notify family */
+  const notifyPictureTaken = useCallback((promptTitle: string) => {
+    void sendNotification(
+      'caretaker',
+      `New picture from ${patientFirstName}`,
+      `${patientFirstName} just submitted a photo for "${promptTitle}". Tap to review it.`,
+    )
+  }, [patientFirstName])
+
+  /** Patient wants to go outside — notify family to approve/deny */
+  const notifyOutdoorRequest = useCallback(() => {
+    void sendNotification(
+      'caretaker',
+      'Outside request',
+      `${patientFirstName} would like to go outside for Picture Day. Open the app to approve or deny.`,
+      'outdoor_request',
+    )
+  }, [patientFirstName])
+
+  /** Family approved outdoor mode — notify patient */
+  const notifyOutdoorApproved = useCallback(() => {
+    void sendNotification(
+      'patient',
+      'You can go outside! 🌿',
+      'Your family approved outdoor Picture Day. Have fun!',
+    )
+  }, [])
+
+  /** Family denied outdoor mode — notify patient */
+  const notifyOutdoorDenied = useCallback(() => {
+    void sendNotification(
+      'patient',
+      'Stay indoors for now',
+      'Your family would like you to stay indoors today.',
+    )
+  }, [])
+
+  /** Send a reminder to the patient (family-triggered) */
+  const notifyPatientReminder = useCallback((text: string) => {
+    void sendNotification('patient', 'Reminder from your family', text)
   }, [])
 
   const handleSendLinkRequest = useCallback(
@@ -275,6 +344,9 @@ export default function AppShellClient({
         onDeleteReminder={handleDeleteReminder}
         familyMembers={familyMembers}
         setFamilyMembers={setFamilyMembers as React.Dispatch<React.SetStateAction<FamilyMember[]>>}
+        onNotifyPatient={notifyPatientReminder}
+        onOutdoorApproved={notifyOutdoorApproved}
+        onOutdoorDenied={notifyOutdoorDenied}
       />
     )
   }
@@ -285,7 +357,7 @@ export default function AppShellClient({
         patientId={user.id}
         patientName={user.name}
         patientCode={linkState.patientCode || user.patientCode}
-        enabled={Boolean(linkState.linkedPartner)}
+        enabled={user.role === 'patient' || Boolean(linkState.linkedPartner)}
       />
       <ReleafApp
         user={user}
@@ -300,6 +372,8 @@ export default function AppShellClient({
         onCheckin={handleCheckin}
         familyMembers={familyMembers}
         setFamilyMembers={setFamilyMembers as React.Dispatch<React.SetStateAction<FamilyMember[]>>}
+        onPictureTaken={notifyPictureTaken}
+        onOutdoorRequest={notifyOutdoorRequest}
       />
     </>
   )

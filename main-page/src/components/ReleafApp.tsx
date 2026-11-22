@@ -229,22 +229,43 @@ function Sparkles() {
   )
 }
 
-function DailyCheckIn({ onClose, inline = false }: { onClose: () => void; inline?: boolean }) {
+function DailyCheckIn({
+  onClose,
+  onComplete,
+  inline = false,
+  completed = false,
+}: {
+  onClose: () => void
+  onComplete?: () => void
+  inline?: boolean
+  completed?: boolean
+}) {
   const TOTAL = 5
   const [questions, setQuestions] = useState<string[]>(() => ALL_CHECKIN_QUESTIONS.slice(0, TOTAL))
-  const [step, setStep] = useState(0)
+  const [step, setStep] = useState(() => (completed ? TOTAL : 0))
   const [inputVal, setInputVal] = useState('')
 
   useEffect(() => {
     setQuestions(pickQuestions(TOTAL))
   }, [])
 
-  const progress = step >= TOTAL ? 100 : Math.round((step / TOTAL) * 100)
-  const done = step >= TOTAL
+  useEffect(() => {
+    if (completed) {
+      setStep(TOTAL)
+    }
+  }, [completed])
+
+  const progress = completed || step >= TOTAL ? 100 : Math.round((step / TOTAL) * 100)
+  const done = completed || step >= TOTAL
 
   function handleAnswer() {
     setInputVal('')
-    setStep(step + 1)
+    const nextStep = step + 1
+    setStep(nextStep)
+    if (nextStep >= TOTAL) {
+      onComplete?.()
+      onClose?.()
+    }
   }
 
   function handleSkip() {
@@ -364,6 +385,8 @@ export default function App({
   onCheckin,
   familyMembers,
   setFamilyMembers,
+  onPictureTaken,
+  onOutdoorRequest,
 }: {
   user?: SessionUser
   linkState?: LinkState
@@ -378,6 +401,8 @@ export default function App({
   onCheckin?: () => Promise<void>
   familyMembers?: import('@/app/(frontend)/page').FamilyMember[] | null
   setFamilyMembers?: React.Dispatch<React.SetStateAction<import('@/app/(frontend)/page').FamilyMember[]>>
+  onPictureTaken?: (promptTitle: string) => void
+  onOutdoorRequest?: () => void
 }) {
   const screenRef = useRef<HTMLElement>(null)
   const displayName = user?.name?.trim() || 'Jamie Lewis'
@@ -455,6 +480,8 @@ export default function App({
         onCancel()
         return
       }
+      // Notify the caretaker's device that approval is needed
+      onOutdoorRequest?.()
       const status = data.state?.outdoorsRequest?.status
       if (status === 'approved') {
         onApprove()
@@ -843,7 +870,7 @@ export default function App({
                     </button>
                   </form>
                 ) : onSwitch ? (
-                  <button className="ct-switch-btn" onClick={onSwitch} title="Switch to caretaker view">
+                  <button className="ct-switch-btn" onClick={onSwitch} title="Switch to family view">
                     <Icon name="users" size={16} />
                   </button>
                 ) : null}
@@ -1058,6 +1085,15 @@ export default function App({
                       <div className="habit-row habit-row-checkin">
                         <DailyCheckIn
                           inline
+                          completed={Boolean(todoChecked['checkin'] || checkInDone)}
+                          onComplete={() => {
+                            setCheckInDone(true)
+                            if (onCheckin) {
+                              void onCheckin()
+                            } else {
+                              setTodoChecked?.((prev) => ({ ...prev, checkin: true }))
+                            }
+                          }}
                           onClose={() => {
                             setCheckInDone(true)
                             if (onCheckin) {
@@ -1068,10 +1104,10 @@ export default function App({
                           }}
                         />
                       </div>
-                      {reminders.map((r) => (
+                      {reminders.map((r, idx) => (
                         <div
                           className={`habit-row habit-row-reminder${todoChecked[String(r.id)] ? ' done' : ''}`}
-                          key={r.id}
+                          key={`${r.id}-${idx}`}
                         >
                           <button
                             className="habit-checkbox"
@@ -1222,7 +1258,7 @@ export default function App({
             </button>
           </div>
           <div className="game-fullscreen-body">
-            <Game key={activeGame} name={activeGame} onComplete={() => setActiveGame(null)} onRequestApproval={handleApprovalRequest} onNotify={notify} />
+            <Game key={activeGame} name={activeGame} onComplete={() => setActiveGame(null)} onRequestApproval={handleApprovalRequest} onNotify={(msg) => { notify(msg); if (activeGame === 'Picture day') onPictureTaken?.(msg) }} />
           </div>
         </div>
       )}
@@ -1252,6 +1288,15 @@ export default function App({
               null
             ) : modal === 'Daily check-in' ? (
               <DailyCheckIn
+                completed={Boolean(todoChecked['checkin'] || checkInDone)}
+                onComplete={() => {
+                  setCheckInDone(true)
+                  if (onCheckin) {
+                    void onCheckin()
+                  } else {
+                    setTodoChecked?.((prev) => ({ ...prev, checkin: true }))
+                  }
+                }}
                 onClose={() => {
                   setCheckInDone(true)
                   if (onCheckin) {
