@@ -113,7 +113,3 @@ releaf/
 - **Not Medical Advice:** Releaf is a daily support and caregiver coordination prototype built for educational and hackathon purposes. It is not a medical device or clinical diagnostic tool, and should not replace emergency services.
 - **Persistence:** Local `.data/` JSON stores provide zero-dependency persistence for local runs and single-node deployments; for multi-instance serverless hosts, pair with an external database.
 
----
-
-## 📄 License
-Distributed under the MIT License. See `LICENSE` for more information.
