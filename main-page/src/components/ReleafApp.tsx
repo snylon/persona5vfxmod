@@ -9,6 +9,7 @@ import Journal from './Journal'
 import LinkGateCard from './LinkGateCard'
 import type { LinkActionResult } from '@/app/(frontend)/link-actions'
 import type { LinkState, SessionUser } from '@/lib/auth-store'
+import type { PatientPictureState } from '@/lib/picture-day-store'
 
 function Icon({ name, size = 20, ...props }: { name: string; size?: number; className?: string }) {
   const paths: Record<string, React.ReactNode> = {
@@ -422,24 +423,99 @@ export default function App({
   const [activity, setActivity] = useState(6420)
   const [toast, setToast] = useState('')
   const [activeGame, setActiveGame] = useState<GameName | null>(null)
-  const [pendingApproval, setPendingApproval] = useState<{ mode: 'indoors' | 'outdoors'; onApprove: () => void; onDeny: () => void } | null>(null)
+  const [pendingApproval, setPendingApproval] = useState<{ requestId: string; onApprove: () => void; onDeny: () => void } | null>(null)
   
   function handlePlay(game: GameName) {
     setActiveGame(game)
   }
   
-  function handleApprovalRequest(mode: 'indoors' | 'outdoors', onApprove: () => void, onDeny: () => void) {
-    // In a real implementation, this would send a notification to the caretaker
-    // For now, we'll auto-approve after 2 seconds to simulate caretaker approval
-    setPendingApproval({ mode, onApprove, onDeny })
-    
-    // Simulate caretaker approval after 2 seconds
-    setTimeout(() => {
-      notify('Outdoor mode approved by caretaker')
+  // Outdoors Picture Day is gated on real caregiver approval. When the patient
+  // picks Outdoors we create an outdoor-access request the caregiver must act
+  // on, then poll until they approve or deny. Backing out of the game cancels
+  // the request so the caregiver's queue doesn't show a stale item.
+  async function handleApprovalRequest(mode: 'indoors' | 'outdoors', onApprove: () => void, onDeny: () => void, onCancel: () => void) {
+    if (mode !== 'outdoors') {
       onApprove()
-      setPendingApproval(null)
-    }, 2000)
+      return
+    }
+    try {
+      const res = await fetch('/picture-day', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'request-outdoors' }),
+      })
+      const data = (await res.json()) as {
+        ok?: boolean
+        error?: string
+        requestId?: string
+        state?: PatientPictureState
+      }
+      if (!res.ok || !data.ok || !data.requestId) {
+        notify(data.error || 'Could not request outdoor mode. Please try again.')
+        onCancel()
+        return
+      }
+      const status = data.state?.outdoorsRequest?.status
+      if (status === 'approved') {
+        onApprove()
+        return
+      }
+      if (status === 'denied') {
+        onDeny()
+        return
+      }
+      setPendingApproval({ requestId: data.requestId, onApprove, onDeny })
+    } catch {
+      notify('Could not reach the server. Please try again.')
+      onCancel()
+    }
   }
+
+  // Poll the caregiver's decision on a pending outdoor-access request, and
+  // cancel the request if the patient closes the game while still waiting.
+  useEffect(() => {
+    if (!pendingApproval) return
+    if (!activeGame) {
+      // Patient left the waiting screen (closed the game or signed out to
+      // switch accounts). Stop polling locally, but leave the request on the
+      // server so the caregiver can still approve it. If the patient comes
+      // back, the same pending request is reused; if the caregiver already
+      // approved it, they proceed immediately next time.
+      setPendingApproval(null)
+      return
+    }
+    let cancelled = false
+    let timer: number
+    const poll = async () => {
+      if (cancelled) return
+      try {
+        const res = await fetch('/picture-day', { cache: 'no-store' })
+        const data = (await res.json()) as { ok?: boolean; state?: PatientPictureState }
+        if (cancelled) return
+        const status = data?.state?.outdoorsRequest?.status
+        if (status === 'approved') {
+          cancelled = true
+          pendingApproval.onApprove()
+          setPendingApproval(null)
+          return
+        }
+        if (status === 'denied') {
+          cancelled = true
+          pendingApproval.onDeny()
+          setPendingApproval(null)
+          return
+        }
+      } catch {
+        // Keep polling through transient network errors.
+      }
+      if (!cancelled) timer = window.setTimeout(poll, 2500)
+    }
+    void poll()
+    return () => {
+      cancelled = true
+      if (timer) window.clearTimeout(timer)
+    }
+  }, [pendingApproval, activeGame])
   const todayDisplayDate = new Intl.DateTimeFormat('en-US', {
     weekday: 'long',
     month: 'long',
@@ -1146,7 +1222,7 @@ export default function App({
             </button>
           </div>
           <div className="game-fullscreen-body">
-            <Game key={activeGame} name={activeGame} onComplete={() => setActiveGame(null)} onRequestApproval={handleApprovalRequest} />
+            <Game key={activeGame} name={activeGame} onComplete={() => setActiveGame(null)} onRequestApproval={handleApprovalRequest} onNotify={notify} />
           </div>
         </div>
       )}

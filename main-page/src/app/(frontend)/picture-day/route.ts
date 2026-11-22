@@ -1,9 +1,13 @@
 import { NextResponse } from 'next/server'
 import { getLinkStateForUser, getSessionUser } from '@/lib/auth-store'
 import {
+  cancelOutdoorsAccess,
+  deletePictureSubmission,
   getCaregiverPictureState,
   getPatientPictureState,
+  requestOutdoorsAccess,
   resetPatientPictureSession,
+  reviewOutdoorsAccess,
   reviewPictureSubmission,
   startPatientPictureSession,
   submitPatientPicture,
@@ -137,6 +141,75 @@ export async function POST(request: Request) {
         decision,
       )
       return NextResponse.json(result, { status: result.ok ? 200 : 400 })
+    }
+
+    if (action === 'delete-picture') {
+      if (ctx.session.role !== 'caregiver') {
+        return NextResponse.json(
+          { ok: false, error: 'Only caregivers can delete pictures.' },
+          { status: 403 },
+        )
+      }
+      const submissionId = typeof body.submissionId === 'string' ? body.submissionId : ''
+      if (!submissionId) {
+        return NextResponse.json({ ok: false, error: 'Missing picture id.' }, { status: 400 })
+      }
+      const result = await deletePictureSubmission(
+        ctx.session.id,
+        ctx.partner.id,
+        submissionId,
+      )
+      return NextResponse.json(result, { status: result.ok ? 200 : 400 })
+    }
+
+    if (action === 'request-outdoors') {
+      if (ctx.session.role !== 'patient') {
+        return NextResponse.json(
+          { ok: false, error: 'Only patients can request outdoor access.' },
+          { status: 403 },
+        )
+      }
+      const result = await requestOutdoorsAccess(ctx.session.id, ctx.partner.id)
+      return NextResponse.json({ ok: true, requestId: result.request.id, state: result.state })
+    }
+
+    if (action === 'review-outdoors') {
+      if (ctx.session.role !== 'caregiver') {
+        return NextResponse.json(
+          { ok: false, error: 'Only caregivers can review outdoor access requests.' },
+          { status: 403 },
+        )
+      }
+      const requestId = typeof body.requestId === 'string' ? body.requestId : ''
+      const decision = body.decision === 'approve' ? 'approve' : body.decision === 'deny' ? 'deny' : null
+      if (!requestId || !decision) {
+        return NextResponse.json(
+          { ok: false, error: 'Invalid outdoor access review request.' },
+          { status: 400 },
+        )
+      }
+      const result = await reviewOutdoorsAccess(
+        ctx.session.id,
+        ctx.partner.id,
+        requestId,
+        decision,
+      )
+      return NextResponse.json(result, { status: result.ok ? 200 : 400 })
+    }
+
+    if (action === 'cancel-outdoors') {
+      if (ctx.session.role !== 'patient') {
+        return NextResponse.json(
+          { ok: false, error: 'Only patients can cancel outdoor access requests.' },
+          { status: 403 },
+        )
+      }
+      const requestId = typeof body.requestId === 'string' ? body.requestId : ''
+      if (!requestId) {
+        return NextResponse.json({ ok: false, error: 'Missing request id.' }, { status: 400 })
+      }
+      await cancelOutdoorsAccess(ctx.session.id, ctx.partner.id, requestId)
+      return NextResponse.json({ ok: true })
     }
 
     return NextResponse.json({ ok: false, error: 'Unknown Picture Day action.' }, { status: 400 })

@@ -37,21 +37,35 @@ export type PictureDaySubmission = {
   reviewedAt?: string
 }
 
+export type OutdoorsAccessRequest = {
+  id: string
+  patientId: string
+  caregiverId: string
+  // 'pending' while the caregiver hasn't decided; 'approved' lets the patient
+  // start one outdoor Picture Day session; 'denied' sends them back to the menu.
+  status: 'pending' | 'approved' | 'denied'
+  createdAt: string
+  decidedAt?: string
+}
+
 export type PatientPictureState = {
   session: PictureDaySession | null
   currentSubmissionStatus: 'none' | 'pending' | 'rejected'
   approvedPromptIndices: number[]
   lastApprovedTitle?: string
+  outdoorsRequest?: OutdoorsAccessRequest | null
 }
 
 export type CaregiverPictureState = {
   pending: PictureDaySubmission[]
   approved: PictureDaySubmission[]
+  outdoorsRequest?: OutdoorsAccessRequest | null
 }
 
 type PictureDayStoreData = {
   sessions: PictureDaySession[]
   submissions: PictureDaySubmission[]
+  outdoorRequests: OutdoorsAccessRequest[]
 }
 
 const DATA_DIR = path.join(process.cwd(), '.data')
@@ -64,11 +78,12 @@ async function readStore(): Promise<PictureDayStoreData> {
     return {
       sessions: Array.isArray(parsed.sessions) ? parsed.sessions : [],
       submissions: Array.isArray(parsed.submissions) ? parsed.submissions : [],
+      outdoorRequests: Array.isArray(parsed.outdoorRequests) ? parsed.outdoorRequests : [],
     }
   } catch (error) {
     const code = (error as NodeJS.ErrnoException)?.code
     if (code === 'ENOENT') {
-      return { sessions: [], submissions: [] }
+      return { sessions: [], submissions: [], outdoorRequests: [] }
     }
     throw error
   }
@@ -79,11 +94,28 @@ async function writeStore(data: PictureDayStoreData): Promise<void> {
   await fs.writeFile(STORE_FILE, JSON.stringify(data, null, 2), 'utf8')
 }
 
+// Most recent outdoors-access request for a linked pair, regardless of status.
+// The patient polls this to learn the caregiver's decision; the caregiver UI
+// surfaces it only while it is still 'pending'.
+function latestOutdoorsRequest(
+  store: PictureDayStoreData,
+  patientId: string,
+  caregiverId: string,
+): OutdoorsAccessRequest | null {
+  return (
+    store.outdoorRequests
+      .filter((r) => r.patientId === patientId && r.caregiverId === caregiverId)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0] ?? null
+  )
+}
+
 function buildPatientState(
   store: PictureDayStoreData,
   patientId: string,
   caregiverId: string,
 ): PatientPictureState {
+  const outdoorsRequest = latestOutdoorsRequest(store, patientId, caregiverId)
+
   const activeSession =
     store.sessions
       .filter((s) => s.patientId === patientId && s.caregiverId === caregiverId && s.active)
@@ -94,6 +126,7 @@ function buildPatientState(
       session: null,
       currentSubmissionStatus: 'none',
       approvedPromptIndices: [],
+      outdoorsRequest,
     }
   }
 
@@ -111,10 +144,12 @@ function buildPatientState(
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
 
   const latestForStep = stepSubs[0]
+  // Indoors patients never wait — they advance immediately on submit.
+  // Only outdoors sessions gate on caregiver approval.
   const currentSubmissionStatus: 'none' | 'pending' | 'rejected' =
-    latestForStep?.status === 'pending'
+    activeSession.mode === 'outdoors' && latestForStep?.status === 'pending'
       ? 'pending'
-      : latestForStep?.status === 'rejected'
+      : activeSession.mode === 'outdoors' && latestForStep?.status === 'rejected'
         ? 'rejected'
         : 'none'
 
@@ -123,6 +158,7 @@ function buildPatientState(
     currentSubmissionStatus,
     approvedPromptIndices,
     lastApprovedTitle: latestApproved?.promptTitle,
+    outdoorsRequest,
   }
 }
 
@@ -162,6 +198,16 @@ export async function startPatientPictureSession(
     updatedAt: now,
   }
   store.sessions.push(session)
+
+  // Starting an outdoor session consumes the one-time outdoor access grant
+  // (and clears any lingering request) so the next outdoor attempt needs fresh
+  // approval. Indoor sessions are unaffected.
+  if (mode === 'outdoors') {
+    store.outdoorRequests = store.outdoorRequests.filter(
+      (r) => !(r.patientId === patientId && r.caregiverId === caregiverId),
+    )
+  }
+
   await writeStore(store)
 
   return buildPatientState(store, patientId, caregiverId)
@@ -234,7 +280,9 @@ export async function submitPatientPicture(
       sub.promptIndex === input.promptIndex &&
       sub.status === 'pending',
   )
-  if (alreadyPending) {
+  // For outdoors, block a second submission while one is already pending.
+  // For indoors, the patient advances immediately so no blocking is needed.
+  if (alreadyPending && session.mode === 'outdoors') {
     return {
       ok: false,
       error: 'Your picture is already waiting for caregiver approval.',
@@ -259,6 +307,12 @@ export async function submitPatientPicture(
 
   store.submissions.push(submission)
   session.updatedAt = now
+
+  // Indoors: advance the step immediately without waiting for caregiver review.
+  if (session.mode === 'indoors') {
+    session.currentStep = input.promptIndex + 1
+  }
+
   await writeStore(store)
 
   return {
@@ -284,7 +338,11 @@ function buildCaregiverState(
     .filter((sub) => sub.status === 'approved')
     .sort((a, b) => (b.reviewedAt || b.createdAt).localeCompare(a.reviewedAt || a.createdAt))
 
-  return { pending, approved }
+  return {
+    pending,
+    approved,
+    outdoorsRequest: latestOutdoorsRequest(store, patientId, caregiverId),
+  }
 }
 
 export async function getCaregiverPictureState(
@@ -345,6 +403,154 @@ export async function reviewPictureSubmission(
       decision === 'approve'
         ? `Approved "${submission.promptTitle}"! The next prompt is now unlocked.`
         : `Asked for a new picture for "${submission.promptTitle}".`,
+    state: buildCaregiverState(store, caregiverId, patientId),
+  }
+}
+
+// ── Outdoors access requests ─────────────────────────────────────────────────
+//
+// Selecting "Outdoors" in the Picture Day menu does not start a session
+// directly. The patient asks the linked caregiver for one-time outdoor access;
+// only an approval unlocks a single outdoor session. This mirrors the existing
+// per-picture review flow but gates mode entry instead of a single prompt.
+
+export async function requestOutdoorsAccess(
+  patientId: string,
+  caregiverId: string,
+): Promise<{ ok: boolean; error?: string; request: OutdoorsAccessRequest; state: PatientPictureState }> {
+  const store = await readStore()
+
+  // An already-approved request is a standing grant: hand it back so the
+  // patient can start immediately without re-asking. It is consumed (removed)
+  // when an outdoor session actually starts, so one approval = one access.
+  const approved = store.outdoorRequests.find(
+    (r) =>
+      r.patientId === patientId && r.caregiverId === caregiverId && r.status === 'approved',
+  )
+  if (approved) {
+    return { ok: true, request: approved, state: buildPatientState(store, patientId, caregiverId) }
+  }
+
+  // Reuse an already-pending request so backing out (or signing out) and
+  // re-asking resumes the same wait instead of stacking duplicates. The
+  // request stays pending until the caregiver decides, so the caregiver always
+  // gets a chance to act on it.
+  const pending = store.outdoorRequests.find(
+    (r) => r.patientId === patientId && r.caregiverId === caregiverId && r.status === 'pending',
+  )
+  if (pending) {
+    return { ok: true, request: pending, state: buildPatientState(store, patientId, caregiverId) }
+  }
+
+  const now = new Date().toISOString()
+  const request: OutdoorsAccessRequest = {
+    id: crypto.randomUUID(),
+    patientId,
+    caregiverId,
+    status: 'pending',
+    createdAt: now,
+  }
+
+  // No usable request remains for this pair (any leftover was denied), so clear
+  // it and start a fresh pending one.
+  store.outdoorRequests = store.outdoorRequests.filter(
+    (r) => !(r.patientId === patientId && r.caregiverId === caregiverId),
+  )
+  store.outdoorRequests.push(request)
+  await writeStore(store)
+
+  return { ok: true, request, state: buildPatientState(store, patientId, caregiverId) }
+}
+
+export async function reviewOutdoorsAccess(
+  caregiverId: string,
+  patientId: string,
+  requestId: string,
+  decision: 'approve' | 'deny',
+): Promise<{ ok: boolean; error?: string; message?: string; state: CaregiverPictureState }> {
+  const store = await readStore()
+  const request = store.outdoorRequests.find(
+    (r) =>
+      r.id === requestId && r.caregiverId === caregiverId && r.patientId === patientId,
+  )
+
+  if (!request) {
+    return {
+      ok: false,
+      error: 'Outdoor access request not found.',
+      state: buildCaregiverState(store, caregiverId, patientId),
+    }
+  }
+
+  if (request.status !== 'pending') {
+    return {
+      ok: false,
+      error: 'This request has already been reviewed.',
+      state: buildCaregiverState(store, caregiverId, patientId),
+    }
+  }
+
+  request.status = decision === 'approve' ? 'approved' : 'denied'
+  request.decidedAt = new Date().toISOString()
+  await writeStore(store)
+
+  return {
+    ok: true,
+    message:
+      decision === 'approve'
+        ? 'Outdoor access approved — they can start their outdoor picture day.'
+        : 'Outdoor access denied.',
+    state: buildCaregiverState(store, caregiverId, patientId),
+  }
+}
+
+export async function cancelOutdoorsAccess(
+  patientId: string,
+  caregiverId: string,
+  requestId: string,
+): Promise<{ ok: boolean }> {
+  const store = await readStore()
+  const index = store.outdoorRequests.findIndex(
+    (r) =>
+      r.id === requestId &&
+      r.patientId === patientId &&
+      r.caregiverId === caregiverId &&
+      r.status === 'pending',
+  )
+
+  if (index >= 0) {
+    store.outdoorRequests.splice(index, 1)
+    await writeStore(store)
+  }
+
+  return { ok: true }
+}
+
+export async function deletePictureSubmission(
+  caregiverId: string,
+  patientId: string,
+  submissionId: string,
+): Promise<{ ok: boolean; error?: string; message?: string; state: CaregiverPictureState }> {
+  const store = await readStore()
+  const index = store.submissions.findIndex(
+    (sub) =>
+      sub.id === submissionId && sub.caregiverId === caregiverId && sub.patientId === patientId,
+  )
+
+  if (index < 0) {
+    return {
+      ok: false,
+      error: 'Picture not found.',
+      state: buildCaregiverState(store, caregiverId, patientId),
+    }
+  }
+
+  store.submissions.splice(index, 1)
+  await writeStore(store)
+
+  return {
+    ok: true,
+    message: 'Picture deleted.',
     state: buildCaregiverState(store, caregiverId, patientId),
   }
 }

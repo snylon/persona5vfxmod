@@ -8,7 +8,11 @@ import CaregiverLocationCard from './CaregiverLocationCard'
 import type { Reminder, FamilyMember } from '@/app/(frontend)/page'
 import type { LinkActionResult } from '@/app/(frontend)/link-actions'
 import type { LinkedPartner, LinkState, SessionUser } from '@/lib/auth-store'
-import type { CaregiverPictureState, PictureDaySubmission } from '@/lib/picture-day-store'
+import type {
+  CaregiverPictureState,
+  OutdoorsAccessRequest,
+  PictureDaySubmission,
+} from '@/lib/picture-day-store'
 
 function Icon({ name, size = 20, ...props }: { name: string; size?: number; className?: string }) {
   const paths: Record<string, React.ReactNode> = {
@@ -157,6 +161,8 @@ function OverviewPage({
   onAddReminder,
   onEditReminder,
   onDeleteReminder,
+  outdoorsRequest,
+  onReviewOutdoors,
 }: {
   linkedPatient?: LinkedPartner | null
   onUnlink?: () => Promise<LinkActionResult>
@@ -169,6 +175,8 @@ function OverviewPage({
   onAddReminder?: (item: { text: string; time: string; days: string }) => Promise<void>
   onEditReminder?: (item: Reminder) => Promise<void>
   onDeleteReminder?: (id: number) => Promise<void>
+  outdoorsRequest?: OutdoorsAccessRequest | null
+  onReviewOutdoors?: (requestId: string, decision: 'approve' | 'deny') => Promise<void>
 }) {
   const [confirmUnlink, setConfirmUnlink] = useState(false)
   const [unlinking, setUnlinking] = useState(false)
@@ -255,6 +263,14 @@ function OverviewPage({
   // Fake to-do items as the patient sees them (read-only)
   return (
     <>
+      {/* Outdoor access request — shown prominently when pending */}
+      {outdoorsRequest && onReviewOutdoors && (
+        <OutdoorsAccessCard
+          request={outdoorsRequest}
+          patientFirstName={patientFirstName}
+          onDecide={onReviewOutdoors}
+        />
+      )}
       {/* Patient info card */}
       <div className="ct-patient-card flex-col !items-stretch gap-3">
         <div className="flex items-center gap-3.5">
@@ -542,17 +558,82 @@ function formatTimeLabel(iso?: string) {
   }
 }
 
+function OutdoorsAccessCard({
+  request,
+  patientFirstName,
+  onDecide,
+}: {
+  request: OutdoorsAccessRequest
+  patientFirstName: string
+  onDecide: (requestId: string, decision: 'approve' | 'deny') => Promise<void>
+}) {
+  const [busy, setBusy] = useState(false)
+  async function decide(decision: 'approve' | 'deny') {
+    if (busy) return
+    setBusy(true)
+    try {
+      await onDecide(request.id, decision)
+    } finally {
+      setBusy(false)
+    }
+  }
+  return (
+    <div className="overflow-hidden rounded-[18px] border border-[#e6dcc0] bg-[#fbf7ec]">
+      <div className="flex items-start justify-between gap-3 p-3.5">
+        <div className="min-w-0">
+          <strong className="block font-['Manrope'] text-[14px] font-bold text-[#7a5a1f]">
+            Outdoor access request
+          </strong>
+          <small className="block text-[10px] text-[#94815a]">
+            {patientFirstName} wants to take pictures outdoors · {formatTimeLabel(request.createdAt)}
+          </small>
+        </div>
+        <span className="shrink-0 rounded-full bg-[#f4e6c4] px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.6px] text-[#9a7424]">
+          Waiting
+        </span>
+      </div>
+      <div className="flex gap-2 p-3.5 pt-0">
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => void decide('approve')}
+          className="flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-[12px] bg-[#5f7d4d] px-3 text-[12px] font-semibold text-white hover:bg-[#526e41] disabled:opacity-60"
+        >
+          <Icon name="check" size={15} />
+          {busy ? 'Saving…' : 'Allow outdoors'}
+        </button>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => void decide('deny')}
+          className="flex min-h-10 items-center justify-center rounded-[12px] border border-[#ead4d6] bg-[#fdf4f5] px-3.5 text-[12px] font-semibold text-[#9a575e] hover:bg-[#f9e7e9] disabled:opacity-60"
+        >
+          Deny
+        </button>
+      </div>
+    </div>
+  )
+}
+
 function PictureReviewPage({
   patientFirstName = 'Jamie',
   pictureState,
   onReview,
+  onReviewOutdoors,
+  onDeletePicture,
 }: {
   patientFirstName?: string
   pictureState: CaregiverPictureState
   onReview: (submissionId: string, decision: 'approve' | 'reject') => Promise<void>
+  onReviewOutdoors?: (requestId: string, decision: 'approve' | 'deny') => Promise<void>
+  onDeletePicture?: (submissionId: string) => Promise<void>
 }) {
   const [busyId, setBusyId] = useState<string | null>(null)
   const [viewingPhoto, setViewingPhoto] = useState<PictureDaySubmission | null>(null)
+  const [confirmDelete, setConfirmDelete] = useState<PictureDaySubmission | null>(null)
+  const [deleting, setDeleting] = useState(false)
+  const outdoorsRequest =
+    pictureState.outdoorsRequest?.status === 'pending' ? pictureState.outdoorsRequest : null
 
   useEffect(() => {
     if (!viewingPhoto) return
@@ -572,8 +653,26 @@ function PictureReviewPage({
     }
   }
 
+  async function confirmDeletePicture() {
+    if (!confirmDelete || deleting) return
+    setDeleting(true)
+    try {
+      await onDeletePicture?.(confirmDelete.id)
+      setConfirmDelete(null)
+    } finally {
+      setDeleting(false)
+    }
+  }
+
   return (
     <div className="space-y-4">
+      {outdoorsRequest && (
+        <OutdoorsAccessCard
+          request={outdoorsRequest}
+          patientFirstName={patientFirstName}
+          onDecide={(id, decision) => onReviewOutdoors?.(id, decision) ?? Promise.resolve()}
+        />
+      )}
       <div className="ct-panel">
         <div className="ct-panel-top">
           <div>
@@ -673,17 +772,26 @@ function PictureReviewPage({
         ) : (
           <div className="ct-picture-grid">
             {pictureState.approved.map((p) => (
-              <button
-                type="button"
-                className="ct-picture-item cursor-pointer text-left transition hover:opacity-90"
-                key={p.id}
-                onClick={() => setViewingPhoto(p)}
-                aria-label={`View full size approved picture: ${p.promptTitle}`}
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={p.imageDataUrl} alt={p.promptTitle} />
-                <span>{p.promptTitle}</span>
-              </button>
+              <div className="ct-picture-item" key={p.id}>
+                <button
+                  type="button"
+                  className="ct-picture-item-view"
+                  onClick={() => setViewingPhoto(p)}
+                  aria-label={`View full size approved picture: ${p.promptTitle}`}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={p.imageDataUrl} alt={p.promptTitle} />
+                  <span>{p.promptTitle}</span>
+                </button>
+                <button
+                  type="button"
+                  className="ct-picture-delete"
+                  onClick={() => setConfirmDelete(p)}
+                  aria-label={`Delete approved picture: ${p.promptTitle}`}
+                >
+                  <Icon name="trash" size={14} />
+                </button>
+              </div>
             ))}
           </div>
         )}
@@ -730,6 +838,50 @@ function PictureReviewPage({
                 alt={`Full size photo for ${viewingPhoto.promptTitle}`}
                 className="max-h-[72dvh] max-w-full rounded-[12px] object-contain"
               />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {confirmDelete && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-[#232d26]/75 p-4 backdrop-blur-[2px]"
+          onClick={() => setConfirmDelete(null)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="picture-delete-title"
+            onClick={(event) => event.stopPropagation()}
+            className="w-full max-w-[340px] rounded-[20px] border border-[#dfe6d6] bg-white p-5 shadow-[0_24px_60px_rgba(0,0,0,0.35)]"
+          >
+            <strong
+              id="picture-delete-title"
+              className="block font-['Manrope'] text-[15px] font-bold text-[#3a4d3c]"
+            >
+              Delete this picture?
+            </strong>
+            <p className="mt-1.5 text-[12px] leading-relaxed text-[#6f8065]">
+              &ldquo;{confirmDelete.promptTitle}&rdquo; will be permanently removed from{' '}
+              {patientFirstName}&rsquo;s approved pictures.
+            </p>
+            <div className="mt-4 flex gap-2">
+              <button
+                type="button"
+                onClick={() => setConfirmDelete(null)}
+                className="flex min-h-10 flex-1 items-center justify-center rounded-[12px] border border-[#dce2d5] bg-white text-[12px] font-semibold text-[#6e7966]"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={deleting}
+                onClick={() => void confirmDeletePicture()}
+                className="flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-[12px] bg-[#c25661] px-3 text-[12px] font-semibold text-white hover:bg-[#b14651] disabled:opacity-60"
+              >
+                <Icon name="trash" size={14} />
+                {deleting ? 'Deleting…' : 'Delete'}
+              </button>
             </div>
           </div>
         </div>
@@ -1157,6 +1309,48 @@ export default function CaretakerApp({
     }
   }
 
+  async function handleReviewOutdoors(requestId: string, decision: 'approve' | 'deny') {
+    try {
+      const res = await fetch('/picture-day', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'review-outdoors', requestId, decision }),
+      })
+      const result = (await res.json()) as {
+        ok?: boolean
+        message?: string
+        error?: string
+        state?: CaregiverPictureState
+      }
+      if (result.state) setPictureState(result.state)
+      if (result.message) notify(result.message)
+      else if (result.error) notify(result.error)
+    } catch {
+      notify('Could not save your decision. Please try again.')
+    }
+  }
+
+  async function handleDeletePicture(submissionId: string) {
+    try {
+      const res = await fetch('/picture-day', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'delete-picture', submissionId }),
+      })
+      const result = (await res.json()) as {
+        ok?: boolean
+        message?: string
+        error?: string
+        state?: CaregiverPictureState
+      }
+      if (result.state) setPictureState(result.state)
+      if (result.message) notify(result.message)
+      else if (result.error) notify(result.error)
+    } catch {
+      notify('Could not delete the picture. Please try again.')
+    }
+  }
+
   const pageMeta: Record<CTPage, { title: string; sub: string }> = {
     Overview:  {
       title: `Good morning, ${firstName}.`,
@@ -1211,14 +1405,18 @@ export default function CaretakerApp({
                   className="ct-switch-btn relative"
                   title="Notifications"
                   aria-label={
-                    isLinked && pictureState.pending.length > 0
-                      ? 'Notifications: a picture is waiting to be reviewed'
+                    isLinked &&
+                    (pictureState.pending.length > 0 ||
+                      pictureState.outdoorsRequest?.status === 'pending')
+                      ? 'Notifications: action needed'
                       : 'Notifications'
                   }
                   onClick={() => setNotificationsOpen((open) => !open)}
                 >
                   <Icon name="bell" size={16} />
-                  {isLinked && pictureState.pending.length > 0 && (
+                  {isLinked &&
+                    (pictureState.pending.length > 0 ||
+                      pictureState.outdoorsRequest?.status === 'pending') && (
                     <span
                       className="absolute -right-1 -top-1 h-3 w-3 rounded-full bg-[#dc4c56] ring-2 ring-[#f9f6f1]"
                       aria-hidden="true"
@@ -1241,11 +1439,20 @@ export default function CaretakerApp({
                         <Icon name="close" size={14} />
                       </button>
                     </div>
-                    {isLinked && pictureState.pending.length > 0 ? (
+                    {isLinked &&
+                    (pictureState.pending.length > 0 ||
+                      pictureState.outdoorsRequest?.status === 'pending') ? (
                       <div className="mt-3 space-y-2.5">
-                        <p className="text-[12px] font-medium leading-snug text-[#3d513c]">
-                          A picture is waiting to be reviewed
-                        </p>
+                        {pictureState.outdoorsRequest?.status === 'pending' && (
+                          <p className="text-[12px] font-medium leading-snug text-[#3d513c]">
+                            {patientFirstName} wants to take pictures outdoors
+                          </p>
+                        )}
+                        {pictureState.pending.length > 0 && (
+                          <p className="text-[12px] font-medium leading-snug text-[#3d513c]">
+                            A picture is waiting to be reviewed
+                          </p>
+                        )}
                         <button
                           type="button"
                           onClick={() => {
@@ -1297,6 +1504,12 @@ export default function CaretakerApp({
                 onAddReminder={onAddReminder}
                 onEditReminder={onEditReminder}
                 onDeleteReminder={onDeleteReminder}
+                outdoorsRequest={
+                  pictureState.outdoorsRequest?.status === 'pending'
+                    ? pictureState.outdoorsRequest
+                    : null
+                }
+                onReviewOutdoors={handleReviewOutdoors}
               />
             ) : (
               <LinkGateCard role="caregiver" onGoToSettings={() => setPage('Settings')} />
@@ -1308,6 +1521,8 @@ export default function CaretakerApp({
                 patientFirstName={patientFirstName}
                 pictureState={pictureState}
                 onReview={handleReviewPicture}
+                onReviewOutdoors={handleReviewOutdoors}
+                onDeletePicture={handleDeletePicture}
               />
             ) : (
               <LinkGateCard role="caregiver" onGoToSettings={() => setPage('Settings')} />
