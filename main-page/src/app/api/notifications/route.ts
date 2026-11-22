@@ -24,10 +24,19 @@ const queues: Record<string, PendingNotification[]> = {
 }
 let nextId = 1
 
+function normalizeRole(role: string | null): 'caretaker' | 'patient' | null {
+  if (!role) return null
+  const r = role.toLowerCase().trim()
+  if (r === 'caretaker' || r === 'family' || r === 'caregiver') return 'caretaker'
+  if (r === 'patient') return 'patient'
+  return null
+}
+
 export async function GET(req: NextRequest) {
-  const role = req.nextUrl.searchParams.get('role')
-  if (role !== 'caretaker' && role !== 'patient') {
-    return NextResponse.json({ error: 'role must be caretaker or patient' }, { status: 400 })
+  const rawRole = req.nextUrl.searchParams.get('role')
+  const role = normalizeRole(rawRole)
+  if (!role) {
+    return NextResponse.json({ error: 'role must be family/caretaker or patient' }, { status: 400 })
   }
   const pending = queues[role].splice(0) // consume all
   return NextResponse.json({ notifications: pending })
@@ -38,9 +47,10 @@ export async function POST(req: NextRequest) {
   if (!body || !body.to || !body.title) {
     return NextResponse.json({ error: 'missing to / title' }, { status: 400 })
   }
-  const { to, title, body: text = '', action } = body
-  if (to !== 'caretaker' && to !== 'patient') {
-    return NextResponse.json({ error: 'to must be caretaker or patient' }, { status: 400 })
+  const { to: rawTo, title, body: text = '', action } = body
+  const to = normalizeRole(rawTo)
+  if (!to) {
+    return NextResponse.json({ error: 'to must be family/caretaker or patient' }, { status: 400 })
   }
   const note: PendingNotification = { id: nextId++, title, body: text, action, ts: Date.now() }
   queues[to].push(note)

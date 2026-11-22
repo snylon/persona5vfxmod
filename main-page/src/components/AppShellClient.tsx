@@ -228,61 +228,80 @@ export default function AppShellClient({
     }
   }, [])
 
+  const patientDisplayName = user.role === 'patient'
+    ? (user.name?.trim() || 'Patient')
+    : (linkState.linkedPartner?.name?.trim() || 'Patient')
+  const patientFirstName = patientDisplayName.split(/\s+/)[0] || patientDisplayName
+
   const handleCheckin = useCallback(async () => {
     setTodoChecked((prev) => ({ ...prev, checkin: true }))
     try {
-      await fetch('/api/reminders', {
+      const res = await fetch('/api/reminders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'checkin', completed: true }),
       })
+      const json = await res.json()
+      if (json.ok && Array.isArray(json.reminders)) {
+        setReminders(json.reminders)
+        setTodoChecked((prev) => ({
+          ...prev,
+          checkin: Boolean(json.checkinDone),
+        }))
+      }
     } catch (err) {
       console.error('Failed to record checkin:', err)
     }
-  }, [])
+
+    void sendNotification(
+      'caretaker',
+      `${patientFirstName} completed daily check-in 🌸`,
+      `${patientFirstName} finished their daily check-in for today.`,
+    )
+  }, [patientFirstName])
 
   // ── Notification helpers ───────────────────────────────────────────────────
 
-  /** Patient took a picture — notify caretaker */
+  /** Patient took a picture — notify family */
   const notifyPictureTaken = useCallback((promptTitle: string) => {
     void sendNotification(
       'caretaker',
-      'New picture from Jamie',
-      `Jamie just submitted a photo for "${promptTitle}". Tap to review it.`,
+      `New picture from ${patientFirstName}`,
+      `${patientFirstName} just submitted a photo for "${promptTitle}". Tap to review it.`,
     )
-  }, [])
+  }, [patientFirstName])
 
-  /** Patient wants to go outside — notify caretaker to approve/deny */
+  /** Patient wants to go outside — notify family to approve/deny */
   const notifyOutdoorRequest = useCallback(() => {
     void sendNotification(
       'caretaker',
       'Outside request',
-      'Jamie would like to go outside for Picture Day. Open the app to approve or deny.',
+      `${patientFirstName} would like to go outside for Picture Day. Open the app to approve or deny.`,
       'outdoor_request',
     )
-  }, [])
+  }, [patientFirstName])
 
-  /** Caretaker approved outdoor mode — notify patient */
+  /** Family approved outdoor mode — notify patient */
   const notifyOutdoorApproved = useCallback(() => {
     void sendNotification(
       'patient',
       'You can go outside! 🌿',
-      'Your caretaker approved outdoor Picture Day. Have fun!',
+      'Your family approved outdoor Picture Day. Have fun!',
     )
   }, [])
 
-  /** Caretaker denied outdoor mode — notify patient */
+  /** Family denied outdoor mode — notify patient */
   const notifyOutdoorDenied = useCallback(() => {
     void sendNotification(
       'patient',
       'Stay indoors for now',
-      'Your caretaker would like you to stay indoors today.',
+      'Your family would like you to stay indoors today.',
     )
   }, [])
 
-  /** Send a reminder to the patient (caretaker-triggered) */
+  /** Send a reminder to the patient (family-triggered) */
   const notifyPatientReminder = useCallback((text: string) => {
-    void sendNotification('patient', 'Reminder from your caretaker', text)
+    void sendNotification('patient', 'Reminder from your family', text)
   }, [])
 
   const handleSendLinkRequest = useCallback(
@@ -338,7 +357,7 @@ export default function AppShellClient({
         patientId={user.id}
         patientName={user.name}
         patientCode={linkState.patientCode || user.patientCode}
-        enabled={Boolean(linkState.linkedPartner)}
+        enabled={user.role === 'patient' || Boolean(linkState.linkedPartner)}
       />
       <ReleafApp
         user={user}

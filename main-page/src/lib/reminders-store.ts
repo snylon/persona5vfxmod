@@ -31,15 +31,49 @@ function getTodayDateKey(): string {
   return `${year}-${month}-${day}`
 }
 
+function deduplicateAndEnsureUniqueIds(reminders: StoredReminder[]): { reminders: StoredReminder[]; mutated: boolean } {
+  let mutated = false
+  const seenTexts = new Map<string, StoredReminder>()
+  const deduped: StoredReminder[] = []
+
+  for (const r of reminders) {
+    const key = `${r.patientId}::${r.text.trim().toLowerCase()}::${r.time.trim()}`
+    if (seenTexts.has(key)) {
+      mutated = true
+      continue
+    }
+    seenTexts.set(key, r)
+    deduped.push(r)
+  }
+
+  const seenIds = new Set<number>()
+  let nextId = Date.now()
+  for (const r of deduped) {
+    if (seenIds.has(r.id)) {
+      r.id = nextId++
+      mutated = true
+    }
+    seenIds.add(r.id)
+  }
+
+  return { reminders: deduped, mutated }
+}
+
 async function readStore(): Promise<RemindersStoreData> {
   try {
     const raw = await fs.readFile(STORE_FILE, 'utf-8')
     const parsed = JSON.parse(raw) as Partial<RemindersStoreData>
-    return {
-      reminders: Array.isArray(parsed.reminders) ? parsed.reminders : [],
+    const rawReminders = Array.isArray(parsed.reminders) ? parsed.reminders : []
+    const { reminders: cleanedReminders, mutated } = deduplicateAndEnsureUniqueIds(rawReminders)
+    const storeData: RemindersStoreData = {
+      reminders: cleanedReminders,
       initialized: parsed.initialized && typeof parsed.initialized === 'object' ? parsed.initialized : {},
       checkins: parsed.checkins && typeof parsed.checkins === 'object' ? parsed.checkins : {},
     }
+    if (mutated) {
+      void writeStore(storeData).catch(() => {})
+    }
+    return storeData
   } catch {
     return {
       reminders: [],
@@ -81,11 +115,19 @@ export async function getRemindersForUser(
   // If caregiver is linked to patient, migrate any reminders created by caregiver before linking
   let mutated = false
   if (partnerId && targetPatientId === partnerId) {
-    for (const r of store.reminders) {
+    for (const r of [...store.reminders]) {
       if (r.patientId === userId) {
-        r.patientId = partnerId
-        r.caregiverId = userId
-        mutated = true
+        const alreadyExists = store.reminders.some(
+          (existing) => existing.patientId === partnerId && existing.text.trim().toLowerCase() === r.text.trim().toLowerCase()
+        )
+        if (!alreadyExists) {
+          r.patientId = partnerId
+          r.caregiverId = userId
+          mutated = true
+        } else {
+          store.reminders = store.reminders.filter((item) => item !== r)
+          mutated = true
+        }
       }
     }
   }
