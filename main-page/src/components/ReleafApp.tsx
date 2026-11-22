@@ -364,6 +364,8 @@ export default function App({
   onCheckin,
   familyMembers,
   setFamilyMembers,
+  onPictureTaken,
+  onOutdoorRequest,
 }: {
   user?: SessionUser
   linkState?: LinkState
@@ -378,6 +380,8 @@ export default function App({
   onCheckin?: () => Promise<void>
   familyMembers?: import('@/app/(frontend)/page').FamilyMember[] | null
   setFamilyMembers?: React.Dispatch<React.SetStateAction<import('@/app/(frontend)/page').FamilyMember[]>>
+  onPictureTaken?: (promptTitle: string) => void
+  onOutdoorRequest?: () => void
 }) {
   const screenRef = useRef<HTMLElement>(null)
   const displayName = user?.name?.trim() || 'Jamie Lewis'
@@ -455,6 +459,8 @@ export default function App({
         onCancel()
         return
       }
+      // Notify the caretaker's device that approval is needed
+      onOutdoorRequest?.()
       const status = data.state?.outdoorsRequest?.status
       if (status === 'approved') {
         onApprove()
@@ -1222,7 +1228,7 @@ export default function App({
             </button>
           </div>
           <div className="game-fullscreen-body">
-            <Game key={activeGame} name={activeGame} onComplete={() => setActiveGame(null)} onRequestApproval={handleApprovalRequest} onNotify={notify} />
+            <Game key={activeGame} name={activeGame} onComplete={() => setActiveGame(null)} onRequestApproval={handleApprovalRequest} onNotify={(msg) => { notify(msg); if (activeGame === 'Picture day') onPictureTaken?.(msg) }} />
           </div>
         </div>
       )}

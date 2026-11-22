@@ -226,6 +226,8 @@ function OverviewPage({
     setShowReminderForm(false)
     if (onAddReminder) {
       await onAddReminder({ text, time, days })
+      // Notify the patient that a new reminder has been added
+      onNotifyPatient?.(`New reminder from your caretaker: ${text} · ${time}`)
     } else {
       setReminders((prev) => [
         ...prev,
@@ -1212,6 +1214,9 @@ export default function CaretakerApp({
   onDeleteReminder,
   familyMembers,
   setFamilyMembers,
+  onNotifyPatient,
+  onOutdoorApproved,
+  onOutdoorDenied,
 }: {
   user?: SessionUser
   linkState?: LinkState
@@ -1227,6 +1232,9 @@ export default function CaretakerApp({
   onDeleteReminder?: (id: number) => Promise<void>
   familyMembers: FamilyMember[] | null
   setFamilyMembers: React.Dispatch<React.SetStateAction<FamilyMember[]>>
+  onNotifyPatient?: (text: string) => void
+  onOutdoorApproved?: () => void
+  onOutdoorDenied?: () => void
 }) {
   const screenRef = useRef<HTMLElement>(null)
   const [page, setPage] = useState<CTPage>('Overview')
@@ -1325,6 +1333,11 @@ export default function CaretakerApp({
       if (result.state) setPictureState(result.state)
       if (result.message) notify(result.message)
       else if (result.error) notify(result.error)
+      // Notify the patient of the outcome
+      if (result.ok) {
+        if (decision === 'approve') onOutdoorApproved?.()
+        else onOutdoorDenied?.()
+      }
     } catch {
       notify('Could not save your decision. Please try again.')
     }

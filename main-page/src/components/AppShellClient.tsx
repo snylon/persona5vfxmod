@@ -13,6 +13,7 @@ import {
   type LinkActionResult,
 } from '@/app/(frontend)/link-actions'
 import type { LinkState, SessionUser } from '@/lib/auth-store'
+import { registerRole, sendNotification } from '@/lib/useNotify'
 
 export type Reminder = {
   id: number
@@ -63,6 +64,11 @@ export default function AppShellClient({
   })
   const [familyMembers, setFamilyMembers] = useState<FamilyMember[] | null>(null)
   const [linkState, setLinkState] = useState<LinkState>(initialLinkState)
+
+  // Tell the Android bridge which role this device is
+  useEffect(() => {
+    registerRole(user.role === 'caregiver' ? 'caretaker' : 'patient')
+  }, [user.role])
 
   const refreshLinkState = useCallback(async () => {
     try {
@@ -235,6 +241,50 @@ export default function AppShellClient({
     }
   }, [])
 
+  // ── Notification helpers ───────────────────────────────────────────────────
+
+  /** Patient took a picture — notify caretaker */
+  const notifyPictureTaken = useCallback((promptTitle: string) => {
+    void sendNotification(
+      'caretaker',
+      'New picture from Jamie',
+      `Jamie just submitted a photo for "${promptTitle}". Tap to review it.`,
+    )
+  }, [])
+
+  /** Patient wants to go outside — notify caretaker to approve/deny */
+  const notifyOutdoorRequest = useCallback(() => {
+    void sendNotification(
+      'caretaker',
+      'Outside request',
+      'Jamie would like to go outside for Picture Day. Open the app to approve or deny.',
+      'outdoor_request',
+    )
+  }, [])
+
+  /** Caretaker approved outdoor mode — notify patient */
+  const notifyOutdoorApproved = useCallback(() => {
+    void sendNotification(
+      'patient',
+      'You can go outside! 🌿',
+      'Your caretaker approved outdoor Picture Day. Have fun!',
+    )
+  }, [])
+
+  /** Caretaker denied outdoor mode — notify patient */
+  const notifyOutdoorDenied = useCallback(() => {
+    void sendNotification(
+      'patient',
+      'Stay indoors for now',
+      'Your caretaker would like you to stay indoors today.',
+    )
+  }, [])
+
+  /** Send a reminder to the patient (caretaker-triggered) */
+  const notifyPatientReminder = useCallback((text: string) => {
+    void sendNotification('patient', 'Reminder from your caretaker', text)
+  }, [])
+
   const handleSendLinkRequest = useCallback(
     async (patientCode: string): Promise<LinkActionResult> => {
       const result = await sendLinkRequestAction(patientCode)
@@ -275,6 +325,9 @@ export default function AppShellClient({
         onDeleteReminder={handleDeleteReminder}
         familyMembers={familyMembers}
         setFamilyMembers={setFamilyMembers as React.Dispatch<React.SetStateAction<FamilyMember[]>>}
+        onNotifyPatient={notifyPatientReminder}
+        onOutdoorApproved={notifyOutdoorApproved}
+        onOutdoorDenied={notifyOutdoorDenied}
       />
     )
   }
@@ -300,6 +353,8 @@ export default function AppShellClient({
         onCheckin={handleCheckin}
         familyMembers={familyMembers}
         setFamilyMembers={setFamilyMembers as React.Dispatch<React.SetStateAction<FamilyMember[]>>}
+        onPictureTaken={notifyPictureTaken}
+        onOutdoorRequest={notifyOutdoorRequest}
       />
     </>
   )
